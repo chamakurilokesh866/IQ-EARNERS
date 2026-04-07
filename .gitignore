@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+
+.env
+.env.*
+.env.local
+
+src/data/*.json
+src/data/*.log
+src/backups/
+src/logs/

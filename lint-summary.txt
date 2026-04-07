@@ -1,0 +1,812 @@
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\activity\route.ts
+  17:45  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  27:56  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  40:45  error  'quizzes' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  86:45  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\analytics\route.ts
+  17:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  27:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  73:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\certificates\bulk\route.ts
+  15:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\demo-questions\route.ts
+  34:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\leaderboard\reset\route.ts
+  28:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\payments\[id]\approve\route.ts
+   4:49  error  'updateProfileWallet' is defined but never used             @typescript-eslint/no-unused-vars
+   6:10  error  'findPendingReferralsByReferred' is defined but never used  @typescript-eslint/no-unused-vars
+   6:42  error  'updateReferral' is defined but never used                  @typescript-eslint/no-unused-vars
+  33:29  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  44:55  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  46:28  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  47:35  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  48:62  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  52:34  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  53:78  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  57:32  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  59:36  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  64:27  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  65:34  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  83:37  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\payments\[id]\deny\route.ts
+  32:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\payments\history\route.ts
+  20:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:92  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\quiz\generate-questions\route.ts
+   66:51   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   66:79   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   71:39   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   79:15   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  147:32   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  148:31   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  149:9    error  'opts' is never reassigned. Use 'const' instead  prefer-const
+  167:35   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  168:34   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  202:30   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  206:33   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  206:108  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  209:34   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  209:125  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  211:104  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  214:27   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\referrals\route.ts
+  18:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\settings\upload-qr\route.ts
+   5:26  error  'getSettings' is defined but never used   @typescript-eslint/no-unused-vars
+  51:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  67:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\admin\sponsors\route.ts
+  31:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\ads\analytics\route.ts
+  13:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\ads\route.ts
+   62:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:92  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  173:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  195:94  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\affiliate-links\analytics\route.ts
+  12:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\affiliate-links\route.ts
+  40:61  error  'clicks' is defined but never used        @typescript-eslint/no-unused-vars
+  40:69  error  'impressions' is defined but never used   @typescript-eslint/no-unused-vars
+  82:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\backup\route.ts
+  9:28  error  'req' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\bootstrap\route.ts
+  17:11   error  'paidCookie' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  27:32   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  29:44   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  47:46   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  49:63   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  49:93   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  49:119  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  51:67   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  58:26   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  59:42   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  61:40   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  62:81   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  69:43   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  73:29   error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\challenges\accept\route.ts
+  24:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\challenges\notifications\route.ts
+  19:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  27:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\csrf\route.ts
+  5:27  error  'req' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\integrity\route.ts
+  22:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\leaderboard\[id]\route.ts
+  3:10  error  'getLeaderboard' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\leaderboard\route.ts
+  36:42  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  38:42  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  53:9   error  'totalTimeSeconds' is never reassigned. Use 'const' instead  prefer-const
+  90:39  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\leaderboard\stream\route.ts
+   6:35  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   7:40  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   7:48  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  13:25  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  36:9   error  'timer' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\live-mega\route.ts
+  14:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\log\error\route.ts
+  16:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:95  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\notices\route-LAPTOP-QI7RN3DO.ts
+  91:12  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\participants\[id]\route.ts
+  8:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\participants\route.ts
+  24:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\[id]\route.ts
+  20:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\blocked-user-order\route.ts
+  16:12  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\cashfree\create-order\route.ts
+  111:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\cashfree\verify-order\route.ts
+  43:16   error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  44:16   error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  45:16   error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  54:69   error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  54:100  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  56:9    error  'existing' is never reassigned. Use 'const' instead  prefer-const
+  75:15   error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\confirm\route.ts
+  21:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  63:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  75:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\qr-request\route.ts
+  65:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\route.ts
+   5:10  error  'cookies' is defined but never used              @typescript-eslint/no-unused-vars
+  51:17  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  73:7   error  'meta' is never reassigned. Use 'const' instead  prefer-const
+  73:13  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\unblock-webhook\route.ts
+   33:35  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+   71:16  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  123:7   error  'payment' is never reassigned. Use 'const' instead  prefer-const
+  126:94  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\payments\webhook\route.ts
+  31:16  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  88:7   error  'payment' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\practice-quiz\route.ts
+  4:54  error  'invalidatePracticeQuizCache' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\prizes\[id]\route.ts
+   9:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\prizes\enroll\route.ts
+  21:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\prizes\route.ts
+  28:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\progress\route.ts
+  13:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\public\profile\[username]\route.ts
+  34:7   error  'stats' is never reassigned. Use 'const' instead              prefer-const
+  34:41  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  36:7   error  'tournamentResults' is never reassigned. Use 'const' instead  prefer-const
+  49:55  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  51:35  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  52:44  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  52:52  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  56:29  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  59:35  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  61:49  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  64:42  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  66:57  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  75:49  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  78:42  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  80:37  error  Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\push\send\route.ts
+   9:38   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:104  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  57:17   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  63:41   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\push\subscribe\route.ts
+  23:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\qr\route.ts
+  20:12  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\quiz-completion\report\route.ts
+  40:131  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\quizzes\route.ts
+  43:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  79:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  80:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  87:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\reset\route.ts
+  7:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\stats\public\route.ts
+  14:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\stats\route.ts
+  18:45  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  32:52  error  'referrals' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  39:16  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  40:15  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  41:21  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  52:69  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  55:52  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  59:47  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  92:44  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\tournaments\[id]\route.ts
+  3:10  error  'getTournaments' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\tournaments\enroll-after-payment\route.ts
+  31:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\tournaments\enroll\route.ts
+   40:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   43:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   43:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:8   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\tournaments\route.ts
+  18:9  error  'current' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\transparency\route.ts
+  14:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:12  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\activity\route.ts
+  36:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:69  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:99  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  73:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\certificates\route.ts
+   6:10  error  'getProfiles' is defined but never used   @typescript-eslint/no-unused-vars
+  76:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\payments\route.ts
+  19:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:69  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:99  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\profile\route.ts
+  27:35  error  'prof' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\stats\route.ts
+   22:89  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  123:7   error  'user' is never reassigned. Use 'const' instead  prefer-const
+  141:83  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  143:33  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\user\upi-request\route.ts
+  16:31  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  24:36  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  24:44  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  30:25  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  72:7   error  'newActive' is never reassigned. Use 'const' instead  prefer-const
+  72:18  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  73:23  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\api\wallet\withdraw\route.ts
+  23:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\global-error.tsx
+  3:39  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\home\page.tsx
+  108:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:34  error  'i' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\intro\page.tsx
+   45:10  error    'sponsorSubmitted' is assigned a value but never used                                                      @typescript-eslint/no-unused-vars
+   86:21  error    'setCoOrgName' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+   87:18  error    'setCoRole' is assigned a value but never used                                                             @typescript-eslint/no-unused-vars
+   88:25  error    'setCoSocialLinks' is assigned a value but never used                                                      @typescript-eslint/no-unused-vars
+  156:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\more\admin-dashboard\page.tsx
+    10:10   error    'Stat' is defined but never used                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+    21:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+   159:21   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+   247:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+   556:86   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                 react/no-unescaped-entities
+   556:94   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                 react/no-unescaped-entities
+   556:99   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                 react/no-unescaped-entities
+   556:110  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                 react/no-unescaped-entities
+   678:15   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+   738:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+   773:13   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  1079:52   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1102:58   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1183:26   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1217:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1295:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1342:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1343:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1344:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1363:29   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1458:31   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1496:9    warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  1515:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1516:50   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1530:36   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1552:43   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1575:48   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1579:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1620:50   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1624:40   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1695:59   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1698:110  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1724:138  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1745:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1746:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1790:18   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1817:20   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1865:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  1933:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2073:45   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2164:26   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2165:221  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2167:150  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2182:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2183:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2217:20   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2250:18   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2251:20   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2253:32   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2257:32   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2297:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2406:48   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2410:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2507:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2527:39   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2581:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2619:26   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2662:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2683:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2703:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2765:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2802:50   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2880:131  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2900:34   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2922:32   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  2927:35   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  2932:40   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  2944:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2945:50   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  2976:46   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3078:17   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3158:17   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3207:51   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3240:34   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3248:113  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3250:37   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3264:17   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3269:44   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3270:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3271:65   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3276:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3277:65   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3282:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3282:76   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3287:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3291:52   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3378:39   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3424:36   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3442:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3460:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3461:46   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3498:43   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3526:28   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3582:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3659:28   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3679:40   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3694:25   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3700:42   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3729:29   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3751:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3783:26   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3793:23   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  3816:36   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  3893:38   error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\prizes\page.tsx
+   16:29  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+   60:7   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+   88:38  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+   89:50  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  154:36  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\tournaments\page.tsx
+  13:38   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  44:6    warning  React Hook useEffect has missing dependencies: 'pathname', 'router', and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  65:104  error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  65:112  error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  66:106  error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  66:114  error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  71:6    warning  React Hook useMemo has a missing dependency: 'tab'. Either include it or remove the dependency array                                   react-hooks/exhaustive-deps
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\app\user\page.tsx
+    3:15   error    'ActivityItem' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+    3:29   error    'PaymentItem' is defined but never used                                                                                      @typescript-eslint/no-unused-vars
+  140:39   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  140:114  error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  140:122  error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  151:44   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  159:10   error    'nextTournament' is assigned a value but never used                                                                          @typescript-eslint/no-unused-vars
+  160:46   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  184:43   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  220:42   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  221:131  error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  230:43   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  230:99   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  233:71   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  255:41   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  255:93   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  258:41   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  258:116  error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  258:124  error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  277:70   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  281:48   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+  290:6    warning  React Hook useEffect has missing dependencies: 'country' and 'username'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  563:89   error    Unexpected any. Specify a different type                                                                                     @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\AdRenderer.tsx
+  105:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\AdSlot.tsx
+   83:99  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\AdminAnalytics.tsx
+  114:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  177:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\AffiliateProducts.tsx
+  53:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\BlockedGate.tsx
+   70:6   warning  React Hook useEffect has a missing dependency: 'runCheck'. Either include it or remove the dependency array                                                                                                                                                     react-hooks/exhaustive-deps
+  177:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\CashfreeCheckout.tsx
+  19:3   error  'orderAmount' is defined but never used    @typescript-eslint/no-unused-vars
+  20:3   error  'orderCurrency' is defined but never used  @typescript-eslint/no-unused-vars
+  66:23  error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\DailyQuiz.tsx
+   238:23   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   238:51   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   238:95   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   244:27   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   248:66   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   258:17   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   264:41   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   268:62   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   334:46   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   334:85   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   340:56   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   340:98   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   345:53   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   363:15   error    'setUid' is assigned a value but never used                                                                                                 @typescript-eslint/no-unused-vars
+   393:10   error    'reportingIndex' is assigned a value but never used                                                                                         @typescript-eslint/no-unused-vars
+   395:10   error    'reportSent' is assigned a value but never used                                                                                             @typescript-eslint/no-unused-vars
+   399:56   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   399:84   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   399:128  error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   404:10   error    'tabVisible' is assigned a value but never used                                                                                             @typescript-eslint/no-unused-vars
+   555:28   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   589:15   error    'hasMultiLang' is assigned a value but never used                                                                                           @typescript-eslint/no-unused-vars
+   617:38   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+   648:6    warning  React Hook useCallback has a missing dependency: 'fullscreenContainerRef'. Either include it or remove the dependency array                 react-hooks/exhaustive-deps
+   670:6    warning  React Hook useEffect has a missing dependency: 'questions'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+   771:6    warning  React Hook useEffect has a missing dependency: 'logIntegrityEvent'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+   788:6    warning  React Hook useEffect has a missing dependency: 'current'. Either include it or remove the dependency array                                  react-hooks/exhaustive-deps
+   920:6    warning  React Hook useEffect has a missing dependency: 'logIntegrityEvent'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+  1077:5    warning  React Hook useCallback has missing dependencies: 'fullscreenContainerRef' and 'router'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  1159:5    warning  React Hook useCallback has missing dependencies: 'fullscreenContainerRef' and 'router'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  1329:9    error    'submitReport' is assigned a value but never used                                                                                           @typescript-eslint/no-unused-vars
+  1352:9    error    'hasMultiLang' is assigned a value but never used                                                                                           @typescript-eslint/no-unused-vars
+  1359:33   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+  1359:80   error    Unexpected any. Specify a different type                                                                                                    @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\ErrorReporter.tsx
+  14:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:97  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\FlagImg.tsx
+  26:5  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\Hero.tsx
+  12:10  error  'title' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\InstallPrompt.tsx
+   6:44  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  10:39  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  21:11  error  'choice' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\JoinCard.tsx
+   9:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\LoginModal.tsx
+  154:17  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  187:17  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  226:17  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  712:37  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\Navbar.tsx
+  42:6  warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\NotificationBell.tsx
+  48:21  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render  react-hooks/rules-of-hooks
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\NotificationToast.tsx
+  43:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\ParticipantsOverlay.tsx
+  9:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\PaymentModal.tsx
+   97:54  error    'onSuccess' is defined but never used                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  191:27  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  201:27  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  214:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  289:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  317:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  440:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\PrizeMarketplaceGrid.tsx
+   7:7   error    'FALLBACK_CATEGORIES' is assigned a value but never used                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   9:29  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  58:7   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  86:58  error    'categories' is defined but never used                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  87:38  error    Unexpected any. Specify a different type                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\PrizesSection.tsx
+  26:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\ReportModal.tsx
+  51:14  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\SponsorForms.tsx
+  7:7  error  'CHECK' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  8:7  error  'CHECKED' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\SponsoredBanner.tsx
+  16:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\TournamentEnrollModal.tsx
+   25:10  error    'paymentId' is assigned a value but never used                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  166:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  178:26  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\TransitionLink.tsx
+  19:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:92  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\TurnstileWidget.tsx
+   48:54  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   51:23  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   55:54  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   59:20  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   71:36  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   93:20  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  104:22  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  115:37  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  117:22  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  122:6   warning  React Hook useEffect has a missing dependency: 'debug'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\UnblockUploadForm.tsx
+  188:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  225:23  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  239:27  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\UnpaidBanner.tsx
+  15:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\UsernameSetForm.tsx
+   60:9   error  'emailValid' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  327:43  error  'i' is defined but never used                    @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\components\XeroxDownloadAnimation.tsx
+  40:11  error  't3' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\context\QuizFullscreenContext.tsx
+  3:25  error  'useCallback' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\activeSessions.ts
+  60:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\aiGateway.ts
+  82:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\audit.ts
+  27:80  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:95  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\cashfreeVerifyUtr.ts
+  106:87  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\email.ts
+  58:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\leaderboard.ts
+  21:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\logout.ts
+  7:7  error  'INTRO_URL' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\parseQuizPdf.ts
+   40:9  error  'questionText' is never reassigned. Use 'const' instead  prefer-const
+  142:9  error  'questionText' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\payments.ts
+  52:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\practiceQuizCache.ts
+  1:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  3:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  7:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\profiles.ts
+  65:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\quizzes.ts
+  63:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\referrals.ts
+  45:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\sanitize.ts
+  23:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\smartIntegrity.ts
+  11:3  error  'timePerQuestionSec' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  57:3  error  'timePerQuestionSec' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\sponsors.ts
+  51:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\unblock-verify.ts
+  36:7  error  'payment' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\lib\unblocked.ts
+  53:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\utils\admin.ts
+  24:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  27:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Chama\OneDrive\Documents\Quiz\nextjs\src\utils\csv.ts
+  1:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  5:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  8:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 562 problems (527 errors, 35 warnings)
+  13 errors and 0 warnings potentially fixable with the `--fix` option.
+

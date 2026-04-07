@@ -1,0 +1,82 @@
+/* Aurora UI — site-wide tokens, surfaces, motion (imported from globals.css) */
+:root,
+html[data-theme="dark"] {
+  --aurora-bg-0: #06040f;
+  --aurora-bg-1: #0c0820;
+  --aurora-violet: #7c3aed;
+  --aurora-violet-bright: #a78bfa;
+  --aurora-teal: #14b8a6;
+  --aurora-teal-dim: rgba(20, 184, 166, 0.35);
+  --aurora-border: rgba(167, 139, 250, 0.22);
+  --aurora-glass: rgba(255, 255, 255, 0.04);
+  --aurora-radius-lg: 1.75rem;
+  --aurora-radius-xl: 2.5rem;
+  --aurora-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes aurora-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes aurora-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.ui-aurora-ring {
+  position: relative;
+  border-radius: var(--aurora-radius-xl);
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.45),
+    rgba(20, 184, 166, 0.25),
+    rgba(124, 58, 237, 0.35)
+  );
+  background-size: 200% 200%;
+  animation: aurora-border-flow 8s ease infinite;
+  padding: 1px;
+}
+
+.ui-aurora-ring-inner {
+  border-radius: calc(var(--aurora-radius-xl) - 1px);
+  background: linear-gradient(165deg, rgba(18, 12, 35, 0.95) 0%, rgba(8, 6, 18, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.ui-chrome-header {
+  border-color: var(--aurora-border) !important;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(20, 184, 166, 0.06) inset !important;
+}
+
+.ui-mobile-nav-shell {
+  border-radius: 2.5rem;
+  border: 1px solid rgba(167, 139, 250, 0.2) !important;
+  background: linear-gradient(180deg, rgba(18, 10, 40, 0.92) 0%, rgba(8, 6, 20, 0.94) 100%) !important;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(20, 184, 166, 0.08) inset !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.ui-mobile-nav-active {
+  color: var(--aurora-violet-bright) !important;
+  background: rgba(124, 58, 237, 0.18) !important;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+}
