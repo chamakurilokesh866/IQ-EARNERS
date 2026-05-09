@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { requireAdmin } from "@/lib/auth"
 import { promises as fs } from "fs"
 import path from "path"
 
@@ -26,10 +26,8 @@ function parseUsernames(input: string): string[] {
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  if (cookieStore.get("role")?.value !== "admin") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
   const body = await req.json().catch(() => ({}))
   const raw = body?.raw ?? body?.text ?? body?.csv ?? body?.json ?? ""
   const tournamentTitle = String(body?.tournamentTitle ?? body?.tournamentName ?? "Quiz Tournament").trim()
@@ -45,7 +43,9 @@ export async function POST(req: Request) {
       username: usernames[i],
       type: "participation",
       tournamentTitle,
-      issuedAt: now
+      issuedAt: now,
+      approved: false,
+      emailSentAt: null
     })
   }
   await fs.writeFile(CERTS_PATH, JSON.stringify(certs, null, 2), "utf-8")

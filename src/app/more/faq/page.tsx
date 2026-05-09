@@ -4,7 +4,7 @@ import Navbar from "../../../components/Navbar"
 import TransitionLink from "../../../components/TransitionLink"
 import { motion } from "framer-motion"
 import { useState } from "react"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import { PARENT_COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/seo"
 
 const FAQ_DATA = [
   {
@@ -75,7 +75,7 @@ export default function FAQPage() {
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">Support & FAQ</h1>
             <p className="text-white/40 max-w-xl mx-auto font-medium">
               Everything you need to know about IQ Earners ({PARENT_COMPANY_NAME}). Can&apos;t find an answer?{" "}
-              Contact us at <span className="text-primary">iqearnersteam@gmail.com</span>
+              Contact us at <span className="text-primary">{SUPPORT_EMAIL}</span>
             </p>
           </motion.div>
 
@@ -131,7 +131,7 @@ export default function FAQPage() {
             <h3 className="text-2xl font-black mb-2">Still have questions?</h3>
             <p className="text-white/40 text-sm mb-8">Out support team typically responds within 4 hours.</p>
             <div className="flex flex-wrap justify-center gap-4">
-                <a href="mailto:iqearnersteam@gmail.com" className="px-8 py-3 rounded-xl bg-primary text-white font-black hover:bg-primary/80 transition-all">Email Support</a>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="px-8 py-3 rounded-xl bg-primary text-white font-black hover:bg-primary/80 transition-all">Email Support</a>
                 <TransitionLink href="/home" className="px-8 py-3 rounded-xl bg-white/5 text-white/70 font-black border border-white/10 hover:bg-white/10 transition-all">Back to Dashboard</TransitionLink>
             </div>
           </div>

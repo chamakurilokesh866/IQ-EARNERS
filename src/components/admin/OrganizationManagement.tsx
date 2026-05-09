@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { adminFetch, adminGetJsonArray } from "@/lib/admin/client"
+import { orgPortalLoginPath } from "@/lib/orgPortalPaths"
 
 type Org = {
   id: string; slug: string; name: string
@@ -11,6 +12,21 @@ type Org = {
   memberCount: number; quizCount: number; active: boolean; approved: boolean; suspended: boolean
   createdAt: string; expiresAt?: string; ownerName: string; ownerEmail: string
   primaryColor?: string; tagline?: string
+  ownerUsername?: string
+  ownerTempPassword?: string
+  /** Admin override; omit or null = use plan template. -1 = unlimited. */
+  maxUsersOverride?: number | null
+  maxQuizzesOverride?: number | null
+  /** Secret path segment for owner/member login URLs */
+  portalCode?: string
+  legalName?: string
+  gstin?: string
+  billingAddressLine?: string
+  billingCity?: string
+  billingState?: string
+  billingPostalCode?: string
+  annualContractValueInr?: number
+  billingNotes?: string
 }
 
 type OrgMember = {
@@ -39,30 +55,54 @@ const PLAN_BADGE: Record<string, { bg: string; text: string; label: string }> = 
 function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({
     name: "", type: "school", contactEmail: "", contactPhone: "", plan: "free", domain: "",
-    ownerName: "", ownerEmail: "", ownerPassword: "", primaryColor: "#7c3aed", accentColor: "#f5b301", tagline: ""
+    ownerName: "", ownerEmail: "", primaryColor: "#7c3aed", accentColor: "#f5b301", tagline: ""
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<Org | null>(null)
+  const nameRef = useRef<HTMLInputElement | null>(null)
+  const ownerNameRef = useRef<HTMLInputElement | null>(null)
+  const ownerEmailRef = useRef<HTMLInputElement | null>(null)
+  const [emailStatus, setEmailStatus] = useState<{ sent: boolean; error?: string } | null>(null)
 
   const handleSubmit = async () => {
-    if (!form.name.trim() || !form.ownerEmail.trim() || !form.ownerName.trim()) { setError("Name, owner name, and owner email are required"); return }
-    if (form.ownerPassword.length < 6) { setError("Owner password must be at least 6 characters"); return }
+    // Use refs as fallback for browser autofill cases where React state may lag behind visible values.
+    const normalized = {
+      ...form,
+      name: (form.name || nameRef.current?.value || "").trim(),
+      ownerName: (form.ownerName || ownerNameRef.current?.value || "").trim(),
+      ownerEmail: (form.ownerEmail || ownerEmailRef.current?.value || "").trim(),
+      contactEmail: (form.contactEmail || "").trim(),
+      contactPhone: (form.contactPhone || "").trim(),
+      domain: (form.domain || "").trim(),
+      tagline: (form.tagline || "").trim(),
+    }
+    setForm((f) => ({ ...f, ...normalized }))
+
+    if (!normalized.name || !normalized.ownerName || !normalized.ownerEmail) {
+      setError("Name, owner name, and owner email are required")
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized.ownerEmail)) {
+      setError("Please enter a valid owner email")
+      return
+    }
     setSaving(true); setError("")
     try {
       const res = await adminFetch("/api/admin/organizations", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, contactEmail: form.contactEmail || form.ownerEmail }),
+        body: JSON.stringify({ ...normalized, contactEmail: normalized.contactEmail || normalized.ownerEmail }),
       })
       const j = await res.json().catch(() => ({}))
-      if (j?.ok) { setCreated(j.data); onCreated() }
+      if (j?.ok) { setCreated(j.data); setEmailStatus(j.credentialsEmail ?? null); onCreated() }
       else setError(j?.error || "Failed to create")
     } catch { setError("Network error") }
     finally { setSaving(false) }
   }
 
   if (created) {
-    const loginUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/org/${created.slug}/login`
+    const path = created.portalCode ? orgPortalLoginPath(created.slug, created.portalCode) : `/org/${created.slug}/login`
+    const loginUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${path}`
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="w-full max-w-lg rounded-2xl bg-[#0f1628] border border-emerald-500/20 p-6 shadow-2xl">
@@ -86,8 +126,24 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                 <div className="text-xs text-white/80">{created.ownerEmail}</div>
               </div>
               <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1 block">Admin Username</label>
+                <div className="text-xs text-cyan-300 font-mono">{created.ownerUsername || "—"}</div>
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1 block">Temporary Password</label>
+              <div className="rounded-xl bg-black/40 border border-white/10 p-3 font-mono text-xs text-amber-300 break-all select-all">{created.ownerTempPassword || "—"}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1 block">Plan</label>
                 <div className="text-xs text-white/80 uppercase">{created.plan}</div>
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1 block">Credentials Email</label>
+                <div className={`text-xs ${emailStatus?.sent ? "text-emerald-300" : "text-amber-300"}`}>
+                  {emailStatus?.sent ? "Sent" : `Not sent${emailStatus?.error ? `: ${emailStatus.error}` : ""}`}
+                </div>
               </div>
             </div>
           </div>
@@ -108,7 +164,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
           <div className="text-[9px] font-black uppercase tracking-widest text-accent/60 mb-1">Organization Info</div>
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Organization Name *</label>
-            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary/30 focus:outline-none" placeholder="e.g. Delhi Public School" />
+            <input ref={nameRef} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary/30 focus:outline-none" placeholder="e.g. Delhi Public School" />
           </div>
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Type</label>
@@ -129,17 +185,16 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Owner Name *</label>
-              <input value={form.ownerName} onChange={(e) => setForm((f) => ({ ...f, ownerName: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none" placeholder="Rajesh Kumar" />
+              <input ref={ownerNameRef} value={form.ownerName} onChange={(e) => setForm((f) => ({ ...f, ownerName: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none" placeholder="Rajesh Kumar" />
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Owner Email *</label>
-              <input value={form.ownerEmail} onChange={(e) => setForm((f) => ({ ...f, ownerEmail: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none" placeholder="owner@school.edu" />
+              <input ref={ownerEmailRef} type="email" value={form.ownerEmail} onChange={(e) => setForm((f) => ({ ...f, ownerEmail: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none" placeholder="owner@school.edu" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Owner Password * (6+ chars)</label>
-              <input type="password" value={form.ownerPassword} onChange={(e) => setForm((f) => ({ ...f, ownerPassword: e.target.value }))} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none" />
+            <div className="rounded-lg bg-cyan-500/10 border border-cyan-400/20 px-3 py-2.5 text-[10px] text-cyan-200">
+              Admin username and temporary password will be generated automatically and emailed to owner.
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1 block">Contact Phone</label>
@@ -185,9 +240,46 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
 function OrgDetailPanel({ org, onClose, onAction }: { org: OrgDetail; onClose: () => void; onAction: () => void }) {
   const [actionLoading, setActionLoading] = useState("")
-  const loginUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/org/${org.slug}/login`
+  const [rotatedCreds, setRotatedCreds] = useState<{ ownerUsername: string; ownerTempPassword: string; emailSent?: boolean; emailError?: string } | null>(null)
+  const [limitUsers, setLimitUsers] = useState("")
+  const [limitQuizzes, setLimitQuizzes] = useState("")
+  const [legalName, setLegalName] = useState("")
+  const [gstin, setGstin] = useState("")
+  const [billingAddressLine, setBillingAddressLine] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostalCode, setBillingPostalCode] = useState("")
+  const [annualContractValueInr, setAnnualContractValueInr] = useState("")
+  const [billingNotes, setBillingNotes] = useState("")
+  const loginPath = org.portalCode ? orgPortalLoginPath(org.slug, org.portalCode) : `/org/${org.slug}/login`
+  const loginUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${loginPath}`
 
-  const doAction = async (action: string, payload?: Record<string, string>) => {
+  useEffect(() => {
+    setLimitUsers(org.maxUsersOverride != null && org.maxUsersOverride !== undefined ? String(org.maxUsersOverride) : "")
+    setLimitQuizzes(org.maxQuizzesOverride != null && org.maxQuizzesOverride !== undefined ? String(org.maxQuizzesOverride) : "")
+    setLegalName(org.legalName ?? "")
+    setGstin(org.gstin ?? "")
+    setBillingAddressLine(org.billingAddressLine ?? "")
+    setBillingCity(org.billingCity ?? "")
+    setBillingState(org.billingState ?? "")
+    setBillingPostalCode(org.billingPostalCode ?? "")
+    setAnnualContractValueInr(org.annualContractValueInr != null ? String(org.annualContractValueInr) : "")
+    setBillingNotes(org.billingNotes ?? "")
+  }, [
+    org.id,
+    org.maxUsersOverride,
+    org.maxQuizzesOverride,
+    org.legalName,
+    org.gstin,
+    org.billingAddressLine,
+    org.billingCity,
+    org.billingState,
+    org.billingPostalCode,
+    org.annualContractValueInr,
+    org.billingNotes,
+  ])
+
+  const doAction = async (action: string, payload?: Record<string, unknown>) => {
     setActionLoading(action)
     try {
       await adminFetch(`/api/admin/organizations/${org.id}`, {
@@ -197,6 +289,26 @@ function OrgDetailPanel({ org, onClose, onAction }: { org: OrgDetail; onClose: (
       onAction()
     } catch { /* ignore */ }
     finally { setActionLoading("") }
+  }
+
+  const resendCredentials = async () => {
+    setActionLoading("resend_credentials")
+    try {
+      const res = await adminFetch(`/api/admin/organizations/${org.id}/resend-credentials`, { method: "POST" })
+      const j = await res.json().catch(() => ({}))
+      if (j?.ok && j?.data) {
+        setRotatedCreds({
+          ownerUsername: j.data.ownerUsername,
+          ownerTempPassword: j.data.ownerTempPassword,
+          emailSent: j.data.emailSent,
+          emailError: j.data.emailError,
+        })
+      }
+    } catch {
+      // ignore
+    } finally {
+      setActionLoading("")
+    }
   }
 
   return (
@@ -246,7 +358,110 @@ function OrgDetailPanel({ org, onClose, onAction }: { org: OrgDetail; onClose: (
           <div><span className="text-white/40">Contact:</span> <span className="text-white/90">{org.contactPhone || "—"}</span></div>
         </div>
 
+        <div className="rounded-xl border border-white/10 p-4 mb-5">
+          <div className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">Subscription limits (override plan)</div>
+          <p className="text-[10px] text-white/35 mb-3 leading-relaxed">
+            Leave blank to use the plan template. Enter <span className="font-mono text-white/55">-1</span> for unlimited members or quizzes.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">Max students / members</label>
+              <input
+                value={limitUsers}
+                onChange={(e) => setLimitUsers(e.target.value)}
+                placeholder="Plan default"
+                className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-primary/40"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">Max organization quizzes</label>
+              <input
+                value={limitQuizzes}
+                onChange={(e) => setLimitQuizzes(e.target.value)}
+                placeholder="Plan default"
+                className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-primary/40"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={() =>
+              doAction("update_limits", {
+                maxUsersOverride: limitUsers.trim() === "" ? null : Number(limitUsers),
+                maxQuizzesOverride: limitQuizzes.trim() === "" ? null : Number(limitQuizzes),
+              })
+            }
+            className="mt-3 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-bold py-2 px-4 hover:bg-white/15 disabled:opacity-50"
+          >
+            {actionLoading === "update_limits" ? "…" : "Save limit overrides"}
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-white/10 p-4 mb-5">
+          <div className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">B2B billing (GST / invoicing)</div>
+          <p className="text-[10px] text-white/35 mb-3 leading-relaxed">
+            For schools, coaching, and enterprises. Shown to org owners on their dashboard. Does not generate e-invoices automatically.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">Legal name</label>
+              <input value={legalName} onChange={(e) => setLegalName(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">GSTIN</label>
+              <input value={gstin} onChange={(e) => setGstin(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white font-mono" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-[9px] text-white/40 block mb-1">Billing address</label>
+              <input value={billingAddressLine} onChange={(e) => setBillingAddressLine(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">City</label>
+              <input value={billingCity} onChange={(e) => setBillingCity(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">State</label>
+              <input value={billingState} onChange={(e) => setBillingState(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">PIN code</label>
+              <input value={billingPostalCode} onChange={(e) => setBillingPostalCode(e.target.value)} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 block mb-1">Annual contract (INR)</label>
+              <input value={annualContractValueInr} onChange={(e) => setAnnualContractValueInr(e.target.value)} placeholder="e.g. 120000" className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-[9px] text-white/40 block mb-1">Internal notes</label>
+              <textarea value={billingNotes} onChange={(e) => setBillingNotes(e.target.value)} rows={2} className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm text-white resize-y" />
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={() =>
+              doAction("update_billing", {
+                legalName,
+                gstin,
+                billingAddressLine,
+                billingCity,
+                billingState,
+                billingPostalCode,
+                billingNotes,
+                annualContractValueInr: annualContractValueInr.trim() === "" ? null : annualContractValueInr,
+              })
+            }
+            className="mt-3 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-bold py-2 px-4 hover:bg-white/15 disabled:opacity-50"
+          >
+            {actionLoading === "update_billing" ? "…" : "Save billing profile"}
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-2 mb-5">
+          <button onClick={resendCredentials} disabled={!!actionLoading} className="rounded-lg bg-cyan-500/15 border border-cyan-500/25 text-cyan-300 text-xs font-bold py-1.5 px-3 hover:bg-cyan-500/20">
+            {actionLoading === "resend_credentials" ? "…" : "Resend owner credentials"}
+          </button>
           {org.suspended ? (
             <button onClick={() => doAction("activate")} disabled={!!actionLoading} className="admin-btn admin-btn-primary text-xs py-1.5 px-3">{actionLoading === "activate" ? "…" : "Activate"}</button>
           ) : (
@@ -258,6 +473,24 @@ function OrgDetailPanel({ org, onClose, onAction }: { org: OrgDetail; onClose: (
             </button>
           ))}
         </div>
+        {rotatedCreds && (
+          <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-4 mb-5">
+            <div className="text-xs font-black text-cyan-200 mb-2 uppercase tracking-wider">New owner credentials generated</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="text-white/40 mb-1">Username</div>
+                <div className="text-cyan-200 font-mono">{rotatedCreds.ownerUsername}</div>
+              </div>
+              <div>
+                <div className="text-white/40 mb-1">Temporary Password</div>
+                <div className="text-amber-200 font-mono break-all">{rotatedCreds.ownerTempPassword}</div>
+              </div>
+            </div>
+            <div className={`mt-2 text-[11px] ${rotatedCreds.emailSent ? "text-emerald-300" : "text-amber-300"}`}>
+              {rotatedCreds.emailSent ? "Credentials email sent." : `Email not sent${rotatedCreds.emailError ? `: ${rotatedCreds.emailError}` : ""}`}
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">Members ({org.members?.length || 0})</div>

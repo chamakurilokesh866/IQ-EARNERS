@@ -1,8 +1,34 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
 
-export default function PaymentFailedAnimation() {
+export default function PaymentFailedAnimation({
+  onRetry,
+  autoRedirectSeconds = 0,
+  subtitle,
+  redirectTo,
+}: {
+  /** If set, shows a primary button to try payment again instead of only waiting */
+  onRetry?: () => void
+  /** If > 0 and `onRetry` is not set, redirect after countdown (seconds) */
+  autoRedirectSeconds?: number
+  subtitle?: string
+  redirectTo?: string
+}) {
+  const [secs, setSecs] = useState(autoRedirectSeconds)
+
+  useEffect(() => {
+    if (onRetry || autoRedirectSeconds <= 0) return
+    if (secs <= 0) {
+      const target = redirectTo ?? "/intro"
+      window.location.replace(target)
+      return
+    }
+    const t = window.setTimeout(() => setSecs((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [onRetry, autoRedirectSeconds, secs, redirectTo])
+
   return (
     <div className="flex flex-col items-center justify-center py-10 relative">
       {/* Dynamic Background Glitch Lines */}
@@ -59,6 +85,9 @@ export default function PaymentFailedAnimation() {
         <h2 className="text-3xl font-black text-red-500 uppercase tracking-tighter mb-1 font-mono">
           Payment Rejected
         </h2>
+        {subtitle ? (
+          <p className="text-sm text-white/55 max-w-sm mx-auto mb-4 leading-relaxed">{subtitle}</p>
+        ) : null}
         <div className="flex items-center justify-center gap-2 mb-4">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <span className="text-[10px] text-red-400/70 font-mono font-bold uppercase tracking-widest">
@@ -67,18 +96,34 @@ export default function PaymentFailedAnimation() {
         </div>
       </motion.div>
 
-      {/* Redirect countdown */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="bg-red-500/5 border border-red-500/10 rounded-full px-6 py-2 flex items-center gap-3 backdrop-blur-md"
-      >
-        <div className="w-4 h-4 rounded-full border-2 border-red-500/30 border-t-red-500 animate-spin" />
-        <span className="text-[11px] text-white/60 font-medium uppercase tracking-wider">
-          Returning to Secure Gateway in <span className="text-white font-bold">3s</span>
-        </span>
-      </motion.div>
+      {onRetry ? (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-sm"
+        >
+          <button
+            type="button"
+            onClick={onRetry}
+            className="w-full sm:flex-1 py-4 rounded-2xl bg-primary text-black text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/25 hover:brightness-110 active:scale-[0.98] transition-all"
+          >
+            Try again
+          </button>
+        </motion.div>
+      ) : autoRedirectSeconds > 0 ? (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="bg-red-500/5 border border-red-500/10 rounded-full px-6 py-2 flex items-center gap-3 backdrop-blur-md"
+        >
+          <div className="w-4 h-4 rounded-full border-2 border-red-500/30 border-t-red-500 animate-spin" />
+          <span className="text-[11px] text-white/60 font-medium uppercase tracking-wider">
+            Returning in <span className="text-white font-bold tabular-nums">{secs}s</span>
+          </span>
+        </motion.div>
+      ) : null}
 
       {/* IQ Protect Badge */}
       <div className="mt-8 flex items-center gap-2 grayscale opacity-30">

@@ -60,6 +60,14 @@ export type AdminStatsSnapshot = {
   totalPlayers?: number
   activeToday?: number
   paymentsByGateway?: Record<string, number>
+  paidProfiles?: number
+  conversionRate?: number
+  arpu30d?: number
+  mrr?: number
+  arr?: number
+  activeOrgCount?: number
+  trialOrgCount?: number
+  churnRiskPct?: number
 }
 
 export function OverviewContext({
@@ -146,6 +154,12 @@ export function OverviewContext({
           accent={stats.pendingPayments ? "amber" : undefined}
         />
       </div>
+      <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <MetricTile icon="💼" label="MRR" value={`₹${(stats.mrr ?? 0).toLocaleString()}`} hint="Active subscriptions" />
+        <MetricTile icon="🏷️" label="ARR run-rate" value={`₹${(stats.arr ?? 0).toLocaleString()}`} hint="MRR x 12" />
+        <MetricTile icon="🎯" label="Paid conversion" value={`${(stats.conversionRate ?? 0).toFixed(2)}%`} hint="Paid profiles / players" />
+        <MetricTile icon="📊" label="ARPU (30d)" value={`₹${(stats.arpu30d ?? 0).toLocaleString()}`} hint="30d revenue / paid profiles" />
+      </div>
 
       <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-black/30 border border-white/5 p-5">
@@ -166,6 +180,10 @@ export function OverviewContext({
             <div className="flex justify-between items-center py-2">
               <span className="text-navy-400">Denied payments</span>
               <span className="font-black text-red-400/90">{stats.deniedPayments ?? 0}</span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-t border-white/5">
+              <span className="text-navy-400">Churn risk proxy</span>
+              <span className="font-black text-violet-300">{(stats.churnRiskPct ?? 0).toFixed(2)}%</span>
             </div>
           </div>
         </div>

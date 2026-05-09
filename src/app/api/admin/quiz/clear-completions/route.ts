@@ -2,7 +2,6 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth"
 import { clearCompletions } from "@/lib/quizCompletions"
-import { getQuizzes } from "@/lib/quizzes"
 
 export async function POST(req: Request) {
   const auth = await requireAdmin()

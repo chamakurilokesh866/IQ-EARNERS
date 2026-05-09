@@ -24,7 +24,7 @@ const TransitionLink = forwardRef<HTMLAnchorElement, LinkProps & { children: Rea
       {...linkProps}
       href={resolvedHref}
       ref={ref as any}
-      prefetch={props.prefetch ?? false}
+      prefetch={props.prefetch ?? true}
       className={style ? "block w-full" : className}
       onMouseEnter={() => {
         if (toPath && typeof toPath === "string") {

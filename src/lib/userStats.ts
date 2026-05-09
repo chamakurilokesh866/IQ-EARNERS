@@ -20,6 +20,13 @@ export type UserStatsData = {
   startedQuizId?: string
   startedQuizCode?: string
   startedAt?: number
+  startedAttemptNonce?: string
+  startedAttemptExpiresAt?: number
+  /** Quiz session integrity warnings; reset when the same quiz is completed or quizId changes. */
+  integrityStrikes?: number
+  integrityStrikesQuizId?: string
+  blocked?: boolean
+  blockReason?: string
 }
 
 async function readFromFile(): Promise<Record<string, UserStatsData>> {
@@ -101,4 +108,14 @@ export async function setUserStats(username: string, data: UserStatsData): Promi
   const all = await readFromFile()
   all[key] = { ...all[key], ...data }
   return writeToFile(all)
+}
+
+/** Clear legacy blocked flags stored inside user_stats (used after unblock). */
+export async function clearBlockedFlagsInUserStats(username: string): Promise<void> {
+  const raw = await getUserStats(username)
+  if (!raw) return
+  const next: UserStatsData = { ...raw }
+  delete next.blocked
+  delete next.blockReason
+  await setUserStats(username, next)
 }

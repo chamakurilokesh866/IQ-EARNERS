@@ -68,11 +68,12 @@ export function SpinAndWin({
     }, [quizId])
 
     useEffect(() => {
+        if (spinning) return
         if (canSpin !== false || result) return
         if (ineligibleFired.current) return
         ineligibleFired.current = true
         onIneligible?.()
-    }, [canSpin, result, onIneligible])
+    }, [canSpin, result, onIneligible, spinning])
 
     useEffect(() => {
         flowCompleteFired.current = false
@@ -145,7 +146,8 @@ export function SpinAndWin({
         }
     }
 
-    if (canSpin === false && !result) return null
+    // Avoid blanking the UI if canSpin flips false a tick before result is committed (e.g. React batching edge cases).
+    if (canSpin === false && !result && !spinning) return null
     if (canSpin === null) {
         return embedded ? (
             <div className="animate-pulse h-24 rounded-2xl bg-white/5 w-full" />

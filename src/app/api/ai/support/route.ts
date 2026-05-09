@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { chatCompletion } from "@/lib/aiGateway"
+import { SUPPORT_EMAIL } from "@/lib/seo"
 
 export const maxDuration = 60
 
@@ -14,7 +15,7 @@ Your personality: Friendly, helpful, concise, and professional. You reply in the
 
 === ABOUT IQ EARNERS ===
 IQ Earners is a skill-based online quiz platform where users pay a one-time entry fee and earn real money through daily quizzes, tournaments, and referrals. Headquartered in India.
-Website: www.iqearners.online | Support: contact@iqearners.online
+Website: www.iqearners.online | Support: ${SUPPORT_EMAIL}
 
 === HOW TO JOIN ===
 1. Visit www.iqearners.online and click "Get Started" or "Log in".

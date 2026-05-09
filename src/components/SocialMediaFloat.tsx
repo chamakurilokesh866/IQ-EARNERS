@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
+import { isMoreHubOrApiGuidePath } from "@/lib/moreDocsPaths"
 
 const HIDE_PATHS = ["/intro", "/maintenance", "/create-username", "/payment", "/login", "/blocked", "/unblock", "/more/admin", "/a"]
 
@@ -42,7 +43,8 @@ export default function SocialMediaFloat() {
       .catch(() => setConfig({ enabled: false, links: {} }))
   }, [])
 
-  const hide = HIDE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
+  const isOrgRoute = pathname === "/org" || pathname.startsWith("/org/")
+  const hide = isMoreHubOrApiGuidePath(pathname) || isOrgRoute || HIDE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
   if (hide || !config?.enabled) return null
 
   const entries = (Object.entries(config.links) as [keyof SocialLinks, string][]).filter(([, url]) => isValidUrl(url))

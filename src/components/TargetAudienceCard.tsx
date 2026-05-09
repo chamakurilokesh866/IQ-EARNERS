@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { RocketIcon, RefreshIcon, CheckIcon } from "./AnimatedIcons"
+import { RocketIcon, RefreshIcon } from "./AnimatedIcons"
+import { clampNumber } from "@/lib/inputValidation"
 
 export default function TargetAudienceCard() {
     const [targetAudience, setTargetAudience] = useState<number>(100)
@@ -10,6 +11,13 @@ export default function TargetAudienceCard() {
     const [loading, setLoading] = useState(false)
     const [saved, setSaved] = useState(false)
     const [resetLoading, setResetLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const Toast = ({ type, message }: { type: "success" | "error"; message: string }) => (
+        <div className={`text-center text-xs font-semibold rounded-lg border px-3 py-2 ${type === "success" ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10" : "text-red-300 border-red-500/40 bg-red-500/10"}`}>
+            {message}
+        </div>
+    )
 
     const load = useCallback(() => {
         fetch("/api/settings", { cache: "no-store", credentials: "include" })
@@ -33,28 +41,40 @@ export default function TargetAudienceCard() {
     const save = async () => {
         setLoading(true)
         setSaved(false)
+        setError(null)
         try {
+            const target = clampNumber(Number(targetAudience) || 100, 1, 99999)
+            const offset = Math.max(0, Number(progressBaseCount) || 0)
             const res = await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({
-                    targetAudience: Math.max(1, Math.min(99999, targetAudience)),
-                    progressBaseCount: Number(progressBaseCount || 0)
+                    targetAudience: target,
+                    progressBaseCount: offset
                 })
             })
             if (res.ok) {
+                setTargetAudience(target)
+                setProgressBaseCount(offset)
                 setSaved(true)
                 setTimeout(() => setSaved(false), 2000)
+            } else {
+                setError("Failed to save progress settings.")
             }
+        } catch {
+            setError("Failed to save progress settings.")
         } finally {
             setLoading(false)
         }
     }
 
     const resetProgress = async () => {
-        if (!confirm("Reset progress bar to 0%? This will clear history and start fresh from current moment.")) return
+        if (!confirm("Reset progress bar to 0%? This is a high-impact change.")) return
+        const typed = window.prompt("Type RESET_PROGRESS to confirm:")
+        if (typed !== "RESET_PROGRESS") return
         setResetLoading(true)
+        setError(null)
         try {
             const now = Date.now()
             const res = await fetch("/api/settings", {
@@ -71,7 +91,11 @@ export default function TargetAudienceCard() {
                 setCurrentRaw(0)
                 setSaved(true)
                 setTimeout(() => setSaved(false), 2000)
+            } else {
+                setError("Failed to reset progress.")
             }
+        } catch {
+            setError("Failed to reset progress.")
         } finally {
             setResetLoading(false)
         }
@@ -103,6 +127,8 @@ export default function TargetAudienceCard() {
                             value={targetAudience}
                             onChange={(e) => setTargetAudience(Number(e.target.value))}
                             className="w-full rounded-xl bg-navy-900 border border-navy-700 px-4 py-2.5 text-sm focus:border-primary/50 outline-none transition-all text-white"
+                            min={1}
+                            max={99999}
                         />
                     </div>
                     <div className="space-y-1.5">
@@ -112,7 +138,9 @@ export default function TargetAudienceCard() {
                             value={progressBaseCount}
                             onChange={(e) => setProgressBaseCount(Number(e.target.value))}
                             className="w-full rounded-xl bg-navy-900 border border-navy-700 px-4 py-2.5 text-sm focus:border-primary/50 outline-none transition-all text-white"
+                            min={0}
                         />
+                        <p className="text-[10px] text-navy-400">Offset lets you manually boost progress for marketing display.</p>
                     </div>
                 </div>
 
@@ -141,7 +169,7 @@ export default function TargetAudienceCard() {
                         onClick={save}
                         disabled={loading}
                     >
-                        {loading ? "Saving..." : "Apply Settings"}
+                        {loading ? "Saving..." : "Save Settings"}
                     </button>
                     <button
                         className="px-4 py-3 rounded-xl bg-navy-800 border border-navy-700 text-xs font-semibold hover:bg-navy-700 transition-all disabled:opacity-50"
@@ -151,7 +179,8 @@ export default function TargetAudienceCard() {
                         {resetLoading ? "..." : "Reset to 0%"}
                     </button>
                 </div>
-                {saved && <div className="text-center text-xs text-success animate-fade flex items-center justify-center gap-1"><CheckIcon size={12} /> Settings synced to frontend</div>}
+                {saved && <Toast type="success" message="Settings synced to frontend." />}
+                {error && <Toast type="error" message={error} />}
             </div>
         </div>
     )

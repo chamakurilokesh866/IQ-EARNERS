@@ -6,7 +6,6 @@ import TransitionLink from "@/components/TransitionLink"
 import InspectGuard from "@/components/InspectGuard"
 import SingleTabEnforcer from "@/components/SingleTabEnforcer"
 import PaidGate from "@/components/PaidGate"
-import { backendAwareApi } from "@/lib/backendApi"
 
 function formatTime(secs: number) {
     const h = Math.floor(secs / 3600)
@@ -46,7 +45,7 @@ export default function MockExamPage() {
             })
             .catch(() => { })
 
-        fetch(backendAwareApi("/api/mock-exam/courses"))
+        fetch("/api/mock-exam/courses")
             .then(r => r.ok ? r.json() : null)
             .then(j => { if (!j) { setLoading(false); return }
                 if (j.ok && Array.isArray(j.courses) && j.courses.length > 0) {
@@ -61,7 +60,7 @@ export default function MockExamPage() {
     useEffect(() => {
         if (!selectedCourse) return
         setLoading(true)
-        fetch(`${backendAwareApi("/api/mock-exam/questions")}?course=${encodeURIComponent(selectedCourse.id)}`)
+        fetch(`/api/mock-exam/questions?course=${encodeURIComponent(selectedCourse.id)}`)
             .then(r => r.ok ? r.json() : null)
             .then(j => { if (!j) { setLoading(false); return }
                 if (j.ok) {
@@ -90,7 +89,7 @@ export default function MockExamPage() {
     const submitExam = async (finalAnswers: Record<number, number>) => {
         setSubmitting(true)
         try {
-            const res = await fetch(backendAwareApi("/api/mock-exam/submit"), {
+            const res = await fetch("/api/mock-exam/submit", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -118,7 +117,7 @@ export default function MockExamPage() {
     if (courses.length === 0) {
         return (
             <PaidGate>
-            <main className="min-h-screen app-page-surface text-white">
+            <main className="min-h-screen app-page-surface text-white mock-premium-shell">
                 <Navbar />
                 <div className="max-w-2xl mx-auto mt-20 p-8 text-center bg-navy-800 rounded-2xl">
                     <h2 className="text-2xl font-bold mb-4">Mock Exam not available</h2>
@@ -136,7 +135,7 @@ export default function MockExamPage() {
 
     if (courses.length > 1 && !selectedCourse) {
         return (
-            <main className="min-h-screen app-page-surface text-white">
+            <main className="min-h-screen app-page-surface text-white mock-premium-shell">
                 <Navbar />
                 <div className="max-w-3xl mx-auto mt-10 p-6 md:p-10 mb-20">
                     <div className="flex justify-center mb-6">
@@ -176,7 +175,7 @@ export default function MockExamPage() {
 
     if (!started) {
         return (
-            <main className="min-h-screen app-page-surface text-white">
+            <main className="min-h-screen app-page-surface text-white mock-premium-shell">
                 <Navbar />
                 <div className="max-w-3xl mx-auto mt-10 p-6 md:p-10 mb-20 bg-navy-800 rounded-3xl border border-emerald-500/20 shadow-2xl">
                     <div className="flex justify-center mb-6">
@@ -232,7 +231,7 @@ export default function MockExamPage() {
 
     if (result) {
         return (
-            <main className="min-h-screen app-page-surface text-white pb-20">
+            <main className="min-h-screen app-page-surface text-white pb-20 mock-premium-shell">
                 <Navbar />
                 <div className="max-w-4xl mx-auto mt-10 p-6">
                     <div className="bg-navy-800 rounded-3xl p-8 border border-white/10 text-center mb-10">
@@ -302,7 +301,7 @@ export default function MockExamPage() {
     const q = questions[currentIdx]
 
     return (
-        <main className="min-h-screen app-page-surface text-white flex flex-col h-screen overflow-hidden select-none">
+        <main className="min-h-screen app-page-surface text-white flex flex-col h-screen overflow-hidden select-none mock-premium-shell">
             <InspectGuard />
             <SingleTabEnforcer />
 

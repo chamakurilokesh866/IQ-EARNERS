@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { getPayments, updatePayment } from "@/lib/payments"
 import { getProfileByUsername, getProfileByUid, updateProfileWallet } from "@/lib/profiles"
 import { getLeaderboard, upsertByName } from "@/lib/leaderboard"
@@ -10,17 +9,21 @@ import { recordUnblocked } from "@/lib/unblocked"
 import { addEnrollment, isEnrolled } from "@/lib/enrollments"
 import { generateEnrollmentCode } from "@/lib/enrollmentCode"
 import { audit } from "@/lib/audit"
+import { recordTournamentEntryLedgerIfNeeded } from "@/lib/moneyLedger"
+import type { Payment } from "@/lib/payments"
 import { promises as fs } from "fs"
 import path from "path"
+import { requireAdminPermission, requireRecentAdminAuth, withRefreshedAdminAuth } from "@/lib/auth"
+import { manualQrRequireBankMatch } from "@/lib/manualQrConfig"
 
 const DATA_DIR = path.join(process.cwd(), "src", "data")
 const PARTICIPANTS = path.join(DATA_DIR, "participants.json")
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
-  if (cookieStore.get("role")?.value !== "admin") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-  }
+  const perm = await requireAdminPermission("payment.approve")
+  if (!perm.ok) return NextResponse.json({ ok: false, error: perm.error }, { status: perm.status })
+  const recent = await requireRecentAdminAuth()
+  if (!recent.ok) return NextResponse.json({ ok: false, error: recent.error }, { status: recent.status })
   const { id } = await params
   if (!id) return NextResponse.json({ ok: false, error: "Not found" }, { status: 400 })
 
@@ -32,6 +35,25 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   const meta = (rec.meta || {}) as Record<string, unknown>
+  const bankMatched =
+    typeof meta.bankMatched === "boolean"
+      ? meta.bankMatched
+      : typeof meta.bankMatched === "string"
+        ? meta.bankMatched.toLowerCase() === "true"
+        : null
+  const isManualEntryFlow = rec.gateway === "qr" && rec.type !== "unblock" && rec.type !== "inspect_unblock"
+  const manualProofOnly = meta.manualProofOnly === true
+  if (isManualEntryFlow && !manualProofOnly && manualQrRequireBankMatch() && bankMatched !== true) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Bank verification is required (MANUAL_QR_REQUIRE_BANK_MATCH). Click Verify first, or set that env to false for screenshot-only manual UPI."
+      },
+      { status: 403 }
+    )
+  }
+
   let username = String(meta?.name ?? meta?.username ?? "").trim()
   let referredUid = (rec as any).profileId ?? ""
   if (referredUid) {
@@ -59,7 +81,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         const country = (meta as any)?.country || prof?.country || "IN"
         await upsertByName({ name: username, score: 0, tournamentId: (rec as any).tournamentId, country })
       }
-      if (rec?.type === "tournament" || rec?.gateway === "qr") {
+      if (rec?.type === "tournament" || rec?.type === "annual_entry" || rec?.gateway === "qr") {
         const existing = await getLeaderboard()
         if (!existing.some((p: any) => String(p?.name ?? "").toLowerCase() === username.toLowerCase())) {
           const prof = await getProfileByUsername(username)
@@ -106,11 +128,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   const now = Date.now()
+  const tidFromRec = (rec as { tournamentId?: string }).tournamentId
+  const mergedMeta = {
+    ...meta,
+    approved_at: now,
+    ...(typeof meta.tournamentId !== "string" && typeof tidFromRec === "string" ? { tournamentId: tidFromRec } : {}),
+  }
   await updatePayment(id, {
     status: "success",
     confirmed_at: now,
-    meta: { ...meta, approved_at: now }
+    meta: mergedMeta,
   })
+  if (rec.type === "tournament_entry") {
+    try {
+      const ledgerPayment: Payment = { ...rec, status: "success", confirmed_at: now, meta: mergedMeta }
+      await recordTournamentEntryLedgerIfNeeded(ledgerPayment)
+    } catch { /* ignore ledger fs errors */ }
+  }
 
   // Referral credit: Try to process pending referrals since the payment was just approved.
   // The user might have already created a username, making them fully eligible for referral credit.
@@ -154,5 +188,5 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
   } catch {}
 
-  return NextResponse.json({ ok: true })
+  return withRefreshedAdminAuth(NextResponse.json({ ok: true }))
 }

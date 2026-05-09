@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { useBootstrap } from "@/hooks/useBootstrap"
 import { fetchWithCsrf } from "@/lib/fetchWithCsrf"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import { SUPPORT_EMAIL } from "@/lib/seo"
+import ParentCompanyMark from "./ParentCompanyMark"
 import { CheckIcon, BotIcon, MailIcon } from "./AnimatedIcons"
 
 export default function ContactForm() {
@@ -152,7 +153,7 @@ export default function ContactForm() {
                     <BotIcon size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-black text-sm text-[#1a2340] dark:text-slate-100">IQ Earners AI Support · {PARENT_COMPANY_NAME}</div>
+                    <div className="font-black text-sm text-[#1a2340] dark:text-slate-100 flex flex-wrap items-center gap-x-1.5">IQ Earners AI Support · <ParentCompanyMark className="text-sm" /></div>
                     <div className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-black tracking-widest">Instant Resolution</div>
                   </div>
                   <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 uppercase">Live</span>
@@ -206,7 +207,7 @@ export default function ContactForm() {
       </div>
 
       <div className="text-center">
-        <p className="text-[10px] text-[#94a3b8] dark:text-slate-500 font-black uppercase tracking-widest">Help Center: contact@iqearners.online</p>
+        <p className="text-[10px] text-[#94a3b8] dark:text-slate-500 font-black uppercase tracking-widest">Help Center: {SUPPORT_EMAIL}</p>
       </div>
     </div>
   )

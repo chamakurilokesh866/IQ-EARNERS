@@ -24,6 +24,7 @@ import {
   CashfreeSettingsCard,
   QrUploadCard,
   EntryFeeCard,
+  TournamentPlatformFeeCard,
   BlockedPaymentCard,
   PaymentHistoryTable,
 } from "@/components/admin/PaymentManagement"
@@ -79,6 +80,9 @@ const AIInsightsPanel = dynamic(() => import("@/components/admin/AIInsightsPanel
 const APIKeyManagement = dynamic(() => import("@/components/admin/APIKeyManagement"), { ssr: false })
 const AdvancedQuizModes = dynamic(() => import("@/components/admin/AdvancedQuizModes"), { ssr: false })
 const WhiteLabelSettings = dynamic(() => import("@/components/admin/WhiteLabelSettings"), { ssr: false })
+const MoneyRiskPanel = dynamic(() => import("@/components/admin/MoneyRiskPanel"), { ssr: false })
+const SecurityEventsPanel = dynamic(() => import("@/components/admin/SecurityEventsPanel"), { ssr: false })
+const DataRoomPanel = dynamic(() => import("@/components/admin/DataRoomPanel"), { ssr: false })
 
 function ReportsPanel() {
   const [items, setItems] = useState<any[]>([])
@@ -211,43 +215,62 @@ export function AdminTabContent({
             <div id="payment-entry-fee" className="scroll-mt-28">
               <EntryFeeCard />
             </div>
+            <div id="payment-tournament-fee" className="scroll-mt-28">
+              <TournamentPlatformFeeCard />
+            </div>
             <div id="payment-blocked" className="scroll-mt-28">
               <BlockedPaymentCard />
             </div>
           </div>
         )}
+        {tab === "MoneyRisk" && <MoneyRiskPanel />}
         {tab === "Quizzes" && <QuizManagement />}
         {tab === "Tournaments" && <TournamentManagement />}
         {tab === "Settings" && (
           <div className="space-y-6">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-white/80">
+              Admin-only area. Changes are logged in reports/audit trails.
+            </div>
             <p className="text-xs text-white/45 max-w-3xl">
-              Gateway, manual UPI QR, entry fee, and blocked payment thresholds live under{" "}
+              Payment-related settings are managed in{" "}
               <button type="button" className="text-accent font-bold underline-offset-2 hover:underline" onClick={() => navigateToTab("Payments")}>
                 Payments
               </button>
               .
             </p>
             <AdminTabJumpNav links={[...SETTINGS_JUMP_LINKS]} ariaLabel="Global settings sections" />
-            <div id="settings-vip" className="scroll-mt-28">
-              <VipModalSettingsCard />
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+              <div className="text-sm font-black text-cyan-200 mb-3">📢 Promotions</div>
+              <div id="settings-vip" className="scroll-mt-28">
+                <VipModalSettingsCard />
+              </div>
             </div>
-            <div id="settings-navbar" className="scroll-mt-28">
-              <NavbarLayoutCard />
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+              <div className="text-sm font-black text-blue-200 mb-3">🌐 SEO</div>
+              <div id="settings-seo-verify" className="scroll-mt-28">
+                <SeoVerificationCard />
+              </div>
+              <div id="settings-seo" className="scroll-mt-28 mt-4">
+                <SeoSettingsCard />
+              </div>
+              <div id="settings-social" className="scroll-mt-28 mt-4">
+                <SocialMediaCard />
+              </div>
             </div>
-            <div id="settings-seo-verify" className="scroll-mt-28">
-              <SeoVerificationCard />
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+              <div className="text-sm font-black text-indigo-200 mb-3">⚙ System</div>
+              <div id="settings-navbar" className="scroll-mt-28">
+                <NavbarLayoutCard />
+              </div>
+              <div id="settings-audience" className="scroll-mt-28 mt-4">
+                <TargetAudienceCard />
+              </div>
             </div>
-            <div id="settings-seo" className="scroll-mt-28">
-              <SeoSettingsCard />
-            </div>
-            <div id="settings-maintenance" className="scroll-mt-28">
-              <MaintenanceModeToggle />
-            </div>
-            <div id="settings-social" className="scroll-mt-28">
-              <SocialMediaCard />
-            </div>
-            <div id="settings-audience" className="scroll-mt-28">
-              <TargetAudienceCard />
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-5">
+              <div className="text-sm font-black text-red-300 mb-3">⚠ Risky actions</div>
+              <div id="settings-maintenance" className="scroll-mt-28">
+                <MaintenanceModeToggle />
+              </div>
             </div>
           </div>
         )}
@@ -310,8 +333,10 @@ export function AdminTabContent({
           </div>
         )}
         {tab === "InspectAlerts" && <InspectAlertsCard />}
+        {tab === "Security" && <SecurityEventsPanel />}
         {tab === "Creators" && <CreatorManagement />}
         {tab === "Analytics" && <AdminAnalytics />}
+        {tab === "DataRoom" && <DataRoomPanel />}
         {tab === "Alerts" && <AdminAlerts />}
         {tab === "AIAssistant" && <AdminAI stats={stats} onNavigate={(key) => navigateToTab(key as AdminTab)} />}
         {tab === "Organizations" && <OrganizationManagement />}

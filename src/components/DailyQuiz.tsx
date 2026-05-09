@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useReport } from "@/context/ReportContext"
 import dynamic from "next/dynamic"
@@ -20,7 +19,7 @@ import { generateQuizPdf } from "@/lib/generateQuizPdf"
 import { getDeviceFingerprint } from "@/utils/deviceFingerprint"
 
 const XeroxDownloadAnimation = dynamic(() => import("./XeroxDownloadAnimation"), { ssr: false })
-import { RocketIcon, TimerIcon, FileTextIcon, LightbulbIcon, AlertIcon, RefreshIcon, XIcon, CheckIcon, UserIcon, BotIcon, DownloadIcon } from "./AnimatedIcons"
+import { RocketIcon, TimerIcon, FileTextIcon, LightbulbIcon, AlertIcon, RefreshIcon, XIcon, CheckIcon, UserIcon, BotIcon, DownloadIcon, SparklesIcon } from "./AnimatedIcons"
 const Confetti = dynamic(() => import("./Confetti"), { ssr: false })
 
 type Q = { category?: string; difficulty?: "Easy" | "Medium" | "Hard"; question: string; options: string[]; correct: number; hint?: string; explanation?: string }
@@ -562,11 +561,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
   const [timePerQuestion, setTimePerQuestion] = useState(30)
   const [username, setUsername] = useState<string | null>(null)
   const [uid, setUid] = useState<string | null>(null)
-  const [paid, setPaid] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false
-    try { return localStorage.getItem("paid") === "1" } catch { }
-    return false
-  })
+  const [paid, setPaid] = useState<boolean>(false)
   const [enrollment, setEnrollment] = useState<{ tournamentId: string; tournamentTitle: string; uniqueCode?: string } | null>(null)
   const [country, setCountry] = useState<string | null>(null)
   const [finished, setFinished] = useState(false)
@@ -632,6 +627,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
   const quizTabIdRef = useRef<string>(typeof window !== "undefined" ? `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}` : "tab-0")
   const lastOtherTabMsgRef = useRef<number>(0)
   const quizLockSessionIdRef = useRef<string | null>(null)
+  const quizAttemptTokenRef = useRef<string | null>(null)
   const [quizLockError, setQuizLockError] = useState<string | null>(null)
   const quizBroadcastChannelRef = useRef<BroadcastChannel | null>(null)
   const [showZoomWarning, setShowZoomWarning] = useState(false)
@@ -653,6 +649,54 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       // ignore
     }
   }, [])
+
+  const integrityStrikeChainRef = useRef(Promise.resolve())
+
+  const queueQuizIntegrityStrike = useCallback(
+    async (blockReasonText: string, logType: string, logDetail: string, logMeta?: Record<string, unknown>) => {
+      const qid = currentQuizId || "demo"
+      integrityStrikeChainRef.current = integrityStrikeChainRef.current.then(async () => {
+        try {
+          const res = await fetch("/api/user/quiz-integrity-strike", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ reason: blockReasonText, quizId: qid })
+          })
+          const j = await res.json().catch(() => ({}))
+          if (!res.ok && res.status === 401) {
+            logIntegrityEvent(logType, logDetail, { ...logMeta, strikeSkipped: "not_logged_in" })
+            return
+          }
+          if (typeof j.strikes === "number") setIntegrityWarnings(j.strikes)
+          if (j.blocked) setBlocked(true)
+          logIntegrityEvent(logType, logDetail, { ...logMeta, strikesAfter: j.strikes })
+        } catch {
+          /* ignore */
+        }
+      })
+      await integrityStrikeChainRef.current
+    },
+    [currentQuizId, logIntegrityEvent]
+  )
+
+  useEffect(() => {
+    if (!username || !currentQuizId) return
+    let cancelled = false
+    fetch("/api/user/stats", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        const id = j?.data?.integrityStrikesQuizId
+        const strikes = Number(j?.data?.integrityStrikes ?? 0)
+        if (id === currentQuizId) setIntegrityWarnings(Number.isFinite(strikes) ? strikes : 0)
+        else setIntegrityWarnings(0)
+      })
+      .catch(() => { })
+    return () => {
+      cancelled = true
+    }
+  }, [username, currentQuizId])
 
   useEffect(() => {
     if (challengeParam) {
@@ -715,9 +759,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
 
         // Step 2: Extract key data
         const u = bs?.data?.username || null
-        let localPaid = false
-        try { if (typeof window !== "undefined") localPaid = window.localStorage.getItem("paid") === "1" } catch { }
-        const isPaid = Boolean(bs?.data?.paid) || localPaid
+        const isPaid = Boolean(bs?.data?.paid)
         const tid = bs?.data?.enrollment?.tournamentId ?? null
 
         // Update basic state
@@ -866,12 +908,17 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       }
     }
     if (currentQuizId && username && paid) {
-      fetch("/api/quiz/start", {
+      const started = await fetch("/api/quiz/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ quizId: currentQuizId })
-      }).catch(() => { })
+      }).then((r) => r.json()).catch(() => null)
+      const t = typeof started?.attemptToken === "string" ? started.attemptToken : ""
+      if (t) {
+        quizAttemptTokenRef.current = t
+        try { sessionStorage.setItem(`quiz_attempt_token_${currentQuizId}`, t) } catch { }
+      }
     }
     setQuizStarted(true)
     setTimerActive(true)
@@ -898,10 +945,12 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     const seedStr = `${seed}:${questions[0]?.question ?? ""}:${questions.length}`
     const shuffledQ = seededShuffle(questions, seed).map((q) => {
       const optSeed = seedFrom(`${seedStr}:${q.question}`)
-      const opts = seededShuffle(q.options, optSeed)
-      const correctText = q.options[q.correct] ?? ""
-      const correctIndex = Math.max(0, opts.findIndex((o) => o === correctText))
-      return { ...q, options: opts, correct: correctIndex }
+      const n = q.options.length
+      const order = n > 0 ? seededShuffle(Array.from({ length: n }, (_, i) => i), optSeed) : []
+      const opts = order.map((i) => q.options[i])
+      const origIdx = Math.min(Math.max(0, Number(q.correct) || 0), Math.max(0, n - 1))
+      const correctIndex = n > 0 ? order.indexOf(origIdx) : 0
+      return { ...q, options: opts, correct: correctIndex >= 0 ? correctIndex : 0 }
     })
     setQuestions(shuffledQ)
     setDisplayedQuestions(shuffledQ)
@@ -993,45 +1042,22 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       }
 
       if (!visible && quizStarted && timerActive && !finished && !blocked) {
-        // Only warn if they aren't using a modern mobile browser that might lock screen
-        // But for high reliability of "unfairness" fix, we let it pause without a block first
-        // unless they are away for TOO long.
-        setIntegrityWarnings((w) => {
-          const next = w + 1
-          if (next >= 3) {
-            fetch("/api/user/block", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reason: "Switching tabs during quiz exceeded allowed limit (3 warnings). Stay focused on the quiz."
-              }),
-              credentials: "include"
-            }).then(() => setBlocked(true)).catch(() => { })
-          }
-          logIntegrityEvent("visibility_hidden", "Tab became hidden during quiz.", { previous: w, next })
-          return next
-        })
+        void queueQuizIntegrityStrike(
+          "Switching tabs during quiz exceeded allowed limit (3 warnings). Stay focused on the quiz.",
+          "visibility_hidden",
+          "Tab became hidden during quiz."
+        )
         setShowIntegrityWarning(true)
       }
     }
     const handleFullscreenChange = () => {
       const inFullscreen = !!getFullscreenElement()
       if (!inFullscreen && quizStarted && timerActive && !finished && !blocked) {
-        setIntegrityWarnings((w) => {
-          const next = w + 1
-          if (next >= 3) {
-            fetch("/api/user/block", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reason: "Exiting fullscreen during quiz exceeded allowed limit (3 warnings). Stay in fullscreen to complete the quiz."
-              }),
-              credentials: "include"
-            }).then(() => setBlocked(true)).catch(() => { })
-          }
-          logIntegrityEvent("fullscreen_exit", "Fullscreen exited during active quiz (visibilitychange handler).", { previous: w, next })
-          return next
-        })
+        void queueQuizIntegrityStrike(
+          "Exiting fullscreen during quiz exceeded allowed limit (3 warnings). Stay in fullscreen to complete the quiz.",
+          "fullscreen_exit",
+          "Fullscreen exited during active quiz (visibilitychange handler)."
+        )
         setShowIntegrityWarning(true)
       }
     }
@@ -1043,7 +1069,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
     }
-  }, [quizStarted, timerActive, finished, blocked])
+  }, [quizStarted, timerActive, finished, blocked, queueQuizIntegrityStrike])
 
   useEffect(() => {
     if (!quizStarted || finished || blocked) return
@@ -1198,25 +1224,16 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     if (!active || (!anotherTabOpen && !sessionStolen)) return
     const timeout = setTimeout(() => {
       if (!quizStarted || !timerActive || finished || blocked || (!anotherTabOpen && !sessionStolen)) return
-      setIntegrityWarnings((w) => {
-        const next = w + 1
-        if (next >= 3) {
-          fetch("/api/user/block", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              reason: "Quiz accessed from multiple browsers/devices simultaneously. Session integrity lost."
-            }),
-            credentials: "include"
-          }).then(() => setBlocked(true)).catch(() => { })
-        }
-        logIntegrityEvent("multiple_browser_session", "Concurrent sessions detected across browsers/devices.", { previous: w, next, stolen: sessionStolen })
-        return next
-      })
+      void queueQuizIntegrityStrike(
+        "Quiz accessed from multiple browsers/devices simultaneously. Session integrity lost.",
+        "multiple_browser_session",
+        "Concurrent sessions detected across browsers/devices.",
+        { stolen: sessionStolen }
+      )
       setShowIntegrityWarning(true)
     }, 10000)
     return () => clearTimeout(timeout)
-  }, [anotherTabOpen, sessionStolen, quizStarted, timerActive, finished, blocked, logIntegrityEvent])
+  }, [anotherTabOpen, sessionStolen, quizStarted, timerActive, finished, blocked, queueQuizIntegrityStrike])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1225,26 +1242,16 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     window.history.pushState({ quizLock: true }, "", window.location.href)
     const onPopState = () => {
       window.history.pushState({ quizLock: true }, "", window.location.href)
-      setIntegrityWarnings((w) => {
-        const next = w + 1
-        if (next >= 3) {
-          fetch("/api/user/block", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              reason: "Attempting to leave the quiz (e.g. back button) exceeded allowed limit (3 warnings). Complete the quiz to finish."
-            }),
-            credentials: "include"
-          }).then(() => setBlocked(true)).catch(() => { })
-        }
-        logIntegrityEvent("back_button", "User attempted to use browser back during quiz.", { previous: w, next })
-        return next
-      })
+      void queueQuizIntegrityStrike(
+        "Attempting to leave the quiz (e.g. back button) exceeded allowed limit (3 warnings). Complete the quiz to finish.",
+        "back_button",
+        "User attempted to use browser back during quiz."
+      )
       setShowIntegrityWarning(true)
     }
     window.addEventListener("popstate", onPopState)
     return () => window.removeEventListener("popstate", onPopState)
-  }, [quizStarted, timerActive, finished, blocked])
+  }, [quizStarted, timerActive, finished, blocked, queueQuizIntegrityStrike])
 
   const total = totalQs
   const totalWithReview = total + questionsToReview.length
@@ -1346,7 +1353,11 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
           const minDelay = new Promise<void>((r) => setTimeout(r, 1500))
           const savePromise = username && paid && currentQuizId
             ? (() => {
-              const item = { name: username, score: correctCount, total, totalTimeSeconds, deviceFingerprint: getDeviceFingerprint(), tournamentId: enrollment?.tournamentId, country, rows }
+              const item = { name: username, score: correctCount, total, totalTimeSeconds, deviceFingerprint: getDeviceFingerprint(), tournamentId: enrollment?.tournamentId, country, rows, quizId: currentQuizId ?? undefined }
+              let attemptToken = quizAttemptTokenRef.current
+              if (!attemptToken && currentQuizId) {
+                try { attemptToken = sessionStorage.getItem(`quiz_attempt_token_${currentQuizId}`) || "" } catch { attemptToken = "" }
+              }
               return fetch("/api/leaderboard", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1365,7 +1376,8 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                       rank: lb?.rank,
                       quizId: currentQuizId ?? undefined,
                       rows,
-                      deviceFingerprint: getDeviceFingerprint()
+                      deviceFingerprint: getDeviceFingerprint(),
+                      attemptToken: attemptToken || undefined
                     }),
                     credentials: "include"
                   })
@@ -1452,40 +1464,46 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
         setSavingToServer(true)
         const minDelay = new Promise<void>((r) => setTimeout(r, 1500))
         const savePromise = username && paid && currentQuizId
-          ? fetch("/api/leaderboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: { name: username, score: correctCount, total, totalTimeSeconds, tournamentId: enrollment?.tournamentId, country, deviceFingerprint: getDeviceFingerprint(), rows } }) })
+          ? (() => {
+            let attemptToken = quizAttemptTokenRef.current
+            if (!attemptToken && currentQuizId) {
+              try { attemptToken = sessionStorage.getItem(`quiz_attempt_token_${currentQuizId}`) || "" } catch { attemptToken = "" }
+            }
+            return fetch("/api/leaderboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: { name: username, score: correctCount, total, totalTimeSeconds, tournamentId: enrollment?.tournamentId, country, deviceFingerprint: getDeviceFingerprint(), rows, quizId: currentQuizId ?? undefined } }) })
             .then((r) => r.json())
-            .then((lb) => fetch("/api/user/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: getTodayLocal(), score: correctCount, total, totalTimeSeconds, rank: lb?.rank, quizId: currentQuizId ?? undefined, rows, deviceFingerprint: getDeviceFingerprint() }), credentials: "include" }))
+            .then((lb) => fetch("/api/user/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: getTodayLocal(), score: correctCount, total, totalTimeSeconds, rank: lb?.rank, quizId: currentQuizId ?? undefined, rows, deviceFingerprint: getDeviceFingerprint(), attemptToken: attemptToken || undefined }), credentials: "include" }))
             .then((r) => r.json())
             .then((j) => setStreak(j?.data?.streak ?? 0))
+          })()
           : Promise.resolve()
-          Promise.all([savePromise, minDelay])
-            .then(() => {
-              try { void triggerHapticImpact("heavy") } catch {}
-              setSaveFailed(false)
-              resetBootstrapBust()
-              fetch(getBootstrapUrl(), { cache: "no-store", credentials: "include" }).then(() => {
-                try { window.dispatchEvent(new CustomEvent("bootstrap-invalidate")) } catch { }
-              }).catch(() => { })
-              router.refresh()
-              setQuizSummary(summary)
-              setSavingToServer(false)
-              try { sessionStorage.setItem("quiz_just_completed_ts", String(Date.now())) } catch { }
-              if (correctCount / total >= 0.8) {
-                setShowConfetti(true)
-                try {
-                  const fanfare = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3")
-                  fanfare.volume = 0.4
-                  fanfare.play().catch(() => {})
-                } catch {}
-              }
-            })
-            .catch(() => {
-              setSaveFailed(true)
-              setQuizSummary(summary)
-              setSavingToServer(false)
-              try { sessionStorage.setItem("quiz_just_completed_ts", String(Date.now())) } catch { }
-              if (correctCount / total >= 0.8) setShowConfetti(true)
-            })
+        Promise.all([savePromise, minDelay])
+          .then(() => {
+            try { void triggerHapticImpact("heavy") } catch { }
+            setSaveFailed(false)
+            resetBootstrapBust()
+            fetch(getBootstrapUrl(), { cache: "no-store", credentials: "include" }).then(() => {
+              try { window.dispatchEvent(new CustomEvent("bootstrap-invalidate")) } catch { }
+            }).catch(() => { })
+            router.refresh()
+            setQuizSummary(summary)
+            setSavingToServer(false)
+            try { sessionStorage.setItem("quiz_just_completed_ts", String(Date.now())) } catch { }
+            if (correctCount / total >= 0.8) {
+              setShowConfetti(true)
+              try {
+                const fanfare = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3")
+                fanfare.volume = 0.4
+                fanfare.play().catch(() => { })
+              } catch { }
+            }
+          })
+          .catch(() => {
+            setSaveFailed(true)
+            setQuizSummary(summary)
+            setSavingToServer(false)
+            try { sessionStorage.setItem("quiz_just_completed_ts", String(Date.now())) } catch { }
+            if (correctCount / total >= 0.8) setShowConfetti(true)
+          })
       } else {
         setReviewIndex((i) => i + 1)
         questionStartRef.current = Date.now()
@@ -1516,22 +1534,11 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
 
   const handleExitFullscreenClick = () => {
     if (!quizStarted || !timerActive || finished || blocked) return
-    logIntegrityEvent("fullscreen_exit_button", "User clicked the exit fullscreen button during quiz.")
-    setIntegrityWarnings((w) => {
-      const next = w + 1
-      if (next >= 3) {
-        fetch("/api/user/block", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: "Exiting or attempting to exit the quiz exceeded allowed limit (3 warnings). Complete the quiz to finish."
-          }),
-          credentials: "include"
-        }).then(() => setBlocked(true)).catch(() => { })
-      }
-      logIntegrityEvent("warning_increment", "Integrity warning incremented from exit fullscreen button.", { previous: w, next })
-      return next
-    })
+    void queueQuizIntegrityStrike(
+      "Exiting or attempting to exit the quiz exceeded allowed limit (3 warnings). Complete the quiz to finish.",
+      "fullscreen_exit_button",
+      "User clicked the exit fullscreen button during quiz."
+    )
     setShowIntegrityWarning(true)
   }
 
@@ -1609,7 +1616,11 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     if (enrollment?.tournamentId) item.tournamentId = enrollment.tournamentId
     if (country) item.country = country
       ; (item as Record<string, unknown>).deviceFingerprint = getDeviceFingerprint()
-    fetch("/api/leaderboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: { ...item, rows: data.rows } }) })
+    let attemptToken = quizAttemptTokenRef.current
+    if (!attemptToken && currentQuizId) {
+      try { attemptToken = sessionStorage.getItem(`quiz_attempt_token_${currentQuizId}`) || "" } catch { attemptToken = "" }
+    }
+    fetch("/api/leaderboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: { ...item, rows: data.rows, quizId: currentQuizId ?? undefined } }) })
       .then((r) => r.json())
       .then((lb) =>
         fetch("/api/user/stats", {
@@ -1623,7 +1634,8 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
             rank: lb?.rank,
             quizId: (currentQuizId as string) || undefined,
             rows: data.rows,
-            deviceFingerprint: getDeviceFingerprint()
+            deviceFingerprint: getDeviceFingerprint(),
+            attemptToken: attemptToken || undefined
           }),
           credentials: "include"
         })
@@ -1647,7 +1659,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
         <div className="card p-12 max-w-sm text-center border border-white/10 bg-[#020617] shadow-black shadow-2xl relative overflow-hidden group">
           {/* Pulsing glow */}
           <div className="absolute inset-0 bg-primary/5 animate-pulse-slow" />
-          
+
           <div className="relative z-10">
             <div className="mb-8 flex justify-center">
               <div className="relative">
@@ -1655,19 +1667,19 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                 <RocketIcon size={48} className="text-primary animate-bounce" />
               </div>
             </div>
-            
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Syncing Results</h2>
-            <p className="text-sm text-white/50 mb-8 font-medium">Validating performance data with the main server instance...</p>
-            
+
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Saving Score</h2>
+            <p className="text-sm text-white/50 mb-8 font-medium">Updating the leaderboard with your performance...</p>
+
             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 px-0.5 flex items-center mb-4">
-              <motion.div 
+              <motion.div
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
                 transition={{ duration: 1.5, ease: "easeInOut" }}
                 className="h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(124,58,237,1)]"
               />
             </div>
-            
+
             <div className="flex justify-center gap-1.5">
               {[0, 1, 2].map(i => (
                 <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/20 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
@@ -1693,19 +1705,19 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
         <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center bg-black/55 backdrop-blur-md p-0 sm:p-4 overflow-y-auto overflow-x-hidden w-full min-h-[100dvh] animate-fade">
           <div className="w-full max-w-2xl min-h-0 h-full sm:h-auto sm:max-h-[min(85vh,100dvh)] overflow-hidden flex flex-col bg-white border-0 sm:border border-[#e8eaf0] shadow-2xl relative sm:rounded-3xl my-auto">
             {/* Review Header */}
-            <div className="relative shrink-0 px-6 pt-6 pb-4 text-center border-b border-[#e8eaf0]" style={{ background: `linear-gradient(135deg, ${scoreColor}08 0%, transparent 80%)` }}>
+            <div className="relative shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 text-center border-b border-[#e8eaf0]" style={{ background: `linear-gradient(135deg, ${scoreColor}08 0%, transparent 80%)` }}>
               <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl" style={{ background: scoreColor }} />
-              <button type="button" onClick={() => setShowQaModalFirst(false)} className="absolute top-4 right-4 z-[110] w-9 h-9 rounded-2xl bg-[#f1f5f9] hover:bg-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:text-[#1a2340] transition-all border border-[#e8eaf0] active:scale-90"><XIcon size={16} /></button>
-              <div className="text-[9px] font-black tracking-[0.25em] text-[#64748b]/40 uppercase mb-3">Question-by-Question Review</div>
-              <div className="flex items-center justify-center gap-5">
-                <svg width="68" height="68" viewBox="0 0 72 72" className="shrink-0">
-                  <circle cx="36" cy="36" r="30" fill="none" stroke="#f1f5f9" strokeWidth="5" />
-                  <circle cx="36" cy="36" r="30" fill="none" stroke={scoreColor} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${correctPct * 1.885} 188.5`} transform="rotate(-90 36 36)" style={{ transition: "stroke-dasharray 1.5s cubic-bezier(0.16, 1, 0.3, 1)" }} />
-                  <text x="36" y="36" textAnchor="middle" dominantBaseline="central" fill="#1a2340" fontSize="16" fontWeight="900">{correctPct}%</text>
+              <button type="button" onClick={() => setShowQaModalFirst(false)} className="absolute top-3 sm:top-4 right-3 sm:right-4 z-[110] w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-[#f1f5f9] hover:bg-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:text-[#1a2340] transition-all border border-[#e8eaf0] active:scale-9 active:scale-90"><XIcon size={14} /></button>
+              <div className="text-[8px] sm:text-[9px] font-black tracking-[0.2em] sm:tracking-[0.25em] text-[#64748b]/40 uppercase mb-2 sm:mb-3">Q&A Review</div>
+              <div className="flex items-center justify-center gap-3 sm:gap-5">
+                <svg width="48" height="48" viewBox="0 0 72 72" className="shrink-0 sm:w-[68px] sm:h-[68px]">
+                  <circle cx="36" cy="36" r="30" fill="none" stroke="#f1f5f9" strokeWidth="6" />
+                  <circle cx="36" cy="36" r="30" fill="none" stroke={scoreColor} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${correctPct * 1.885} 188.5`} transform="rotate(-90 36 36)" style={{ transition: "stroke-dasharray 1.5s cubic-bezier(0.16, 1, 0.3, 1)" }} />
+                  <text x="36" y="36" textAnchor="middle" dominantBaseline="central" fill="#1a2340" fontSize="18" fontWeight="900" className="text-[14px] sm:text-[16px]">{correctPct}%</text>
                 </svg>
                 <div className="text-left">
-                  <div className="text-xl font-black text-[#1a2340]">{finalSummary.correct} <span className="text-sm text-[#64748b] font-bold">/ {finalSummary.total} correct</span></div>
-                  <div className="text-[10px] text-[#64748b]/60 uppercase tracking-widest font-black mt-1">⏱ {Number(finalSummary.totalTimeSeconds).toFixed(1)}s total time</div>
+                  <div className="text-lg sm:text-xl font-black text-[#1a2340]">{finalSummary.correct} <span className="text-xs sm:text-sm text-[#64748b] font-bold">/ {finalSummary.total}</span></div>
+                  <div className="text-[9px] text-[#64748b]/60 uppercase tracking-widest font-black mt-0.5 whitespace-nowrap">⏱ {Number(finalSummary.totalTimeSeconds).toFixed(1)}s total</div>
                 </div>
               </div>
             </div>
@@ -1782,77 +1794,77 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       <div ref={quizContainerRef} className="fixed inset-0 z-[110] flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-5 overflow-y-auto overflow-x-hidden w-full min-h-[100dvh] animate-fade">
         {quizSummary && showConfetti && <Confetti onComplete={() => setShowConfetti(false)} />}
 
-        <div className="w-full max-w-4xl min-h-0 h-full sm:h-auto sm:max-h-[min(92vh,100dvh)] overflow-hidden flex flex-col bg-white border-0 sm:border border-[#e8eaf0] shadow-2xl relative sm:rounded-[2.5rem] my-auto">
+        <div className="w-full max-w-xl min-h-0 h-full sm:h-auto sm:max-h-[min(90vh,100dvh)] overflow-hidden flex flex-col bg-white border-0 sm:border border-[#e8eaf0] shadow-2xl relative sm:rounded-[2rem] my-auto">
 
           {/* Premium Header */}
-          <div className="shrink-0 relative overflow-hidden px-8 pt-8 pb-6 text-center border-b border-[#e8eaf0]" style={{ background: `linear-gradient(135deg, ${scoreColor}08 0%, transparent 70%)` }}>
+          <div className="shrink-0 relative overflow-hidden px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 text-center border-b border-[#e8eaf0]" style={{ background: `linear-gradient(135deg, ${scoreColor}08 0%, transparent 70%)` }}>
             <div className="absolute top-0 left-0 right-0 h-1" style={{ background: scoreColor }} />
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-5" style={{ background: scoreColor, filter: "blur(40px)" }} />
+            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 rounded-full opacity-5" style={{ background: scoreColor, filter: "blur(30px)" }} />
 
-            <div className="flex items-center justify-between mb-5">
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#64748b]/40">Official Result</span>
-              <span className="text-[9px] font-black text-[#64748b]/40 tracking-wider">{finalSummary.date}</span>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#64748b]/40">Result Summary</span>
+              <span className="text-[8px] sm:text-[9px] font-black text-[#64748b]/40 tracking-wider">{(finalSummary.date || "").split("-").reverse().join("/")}</span>
             </div>
 
             {/* Animated Score Ring & Quick Stats */}
-            <div className="flex items-center justify-center gap-10 mb-2">
+            <div className="flex items-center justify-center gap-5 sm:gap-8 mb-1.5">
               <div className="relative">
-                <svg width="72" height="72" viewBox="0 0 96 96">
-                  <circle cx="48" cy="48" r="40" fill="none" stroke="#f1f5f9" strokeWidth="6" />
-                  <circle cx="48" cy="48" r="40" fill="none" stroke={scoreColor} strokeWidth="6" strokeLinecap="round"
+                <svg width="54" height="54" viewBox="0 0 96 96" className="sm:w-[60px] sm:h-[60px]">
+                  <circle cx="48" cy="48" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10" />
+                  <circle cx="48" cy="48" r="40" fill="none" stroke={scoreColor} strokeWidth="10" strokeLinecap="round"
                     strokeDasharray={`${correctPct * 2.513} 251.3`} transform="rotate(-90 48 48)"
-                    style={{ transition: "stroke-dasharray 1.8s cubic-bezier(0.16, 1, 0.3, 1)", filter: `drop-shadow(0 0 6px ${scoreColor}15)` }} />
-                  <text x="48" y="44" textAnchor="middle" dominantBaseline="central" fill="#1a2340" fontSize="18" fontWeight="900">{correctPct}%</text>
-                  <text x="48" y="62" textAnchor="middle" dominantBaseline="central" fill="#64748b" fontSize="8" fontWeight="900">ACCURACY</text>
+                    style={{ transition: "stroke-dasharray 1.8s cubic-bezier(0.16, 1, 0.3, 1)", filter: `drop-shadow(0 0 4px ${scoreColor}15)` }} />
+                  <text x="48" y="44" textAnchor="middle" dominantBaseline="central" fill="#1a2340" fontSize="24" fontWeight="900" className="text-[20px] sm:text-[22px]">{correctPct}%</text>
+                  <text x="48" y="64" textAnchor="middle" dominantBaseline="central" fill="#64748b" fontSize="9" fontWeight="900">ACCURACY</text>
                 </svg>
               </div>
               <div className="text-left">
-                <div className="text-3xl font-black" style={{ color: scoreColor }}>{finalSummary.correct}<span className="text-lg text-[#64748b]/30 font-bold">/{finalSummary.total}</span></div>
-                <div className="text-[9px] text-[#64748b] font-black uppercase tracking-widest mt-0.5">Questions Correct</div>
-                <div className="text-[9px] text-[#64748b]/60 font-black mt-0.5">⏱ {Number(finalSummary.totalTimeSeconds).toFixed(1)}s timing</div>
+                <div className="text-xl sm:text-2xl font-black" style={{ color: scoreColor }}>{finalSummary.correct}<span className="text-sm sm:text-base text-[#64748b]/30 font-bold">/{finalSummary.total}</span></div>
+                <div className="text-[8px] sm:text-[9px] text-[#64748b] font-black uppercase tracking-widest mt-0.5">Correct Answers</div>
+                <div className="text-[8px] sm:text-[9px] text-[#64748b]/60 font-black mt-0.5 whitespace-nowrap">⏱ {Number(finalSummary.totalTimeSeconds).toFixed(1)}s speed</div>
                 {enrollment?.tournamentId && (
-                  <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-[9px] font-black text-amber-700 uppercase tracking-wide">
-                    🏆 Tournament Quiz
+                  <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-[8px] sm:text-[9px] font-black text-amber-700 uppercase tracking-wide">
+                    🏆 Tournament
                   </div>
                 )}
               </div>
             </div>
 
-            <h2 className="text-base font-black text-[#1a2340] uppercase tracking-tighter italic">{t.quizCompleted}</h2>
+            <h2 className="text-sm sm:text-base font-black text-[#1a2340] uppercase tracking-tighter italic">{t.quizCompleted}</h2>
           </div>
 
           {/* Scrollable Content - Expanded View */}
-          <div className="flex-1 overflow-y-auto scrollbar-hidden overscroll-contain px-8 py-6 space-y-6">
+          <div className="flex-1 overflow-y-auto scrollbar-hidden overscroll-contain px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
 
             {/* New Quiz Available Banner */}
             {isNewQuizAvailable && (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3 animate-pulse-slow">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                  <RocketIcon size={18} className="text-emerald-600" />
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3 sm:p-4 flex items-center gap-3 animate-pulse-slow">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <RocketIcon size={16} className="text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-sm font-black text-emerald-700">New Quiz Available!</div>
-                  <p className="text-xs text-[#64748b] font-bold mt-0.5">A new quiz has been released. Refresh to take it!</p>
+                  <div className="text-xs sm:text-sm font-black text-emerald-700">New Quiz Released!</div>
+                  <p className="text-[10px] sm:text-xs text-[#64748b] font-bold mt-0.5">Refresh to take the latest challenge.</p>
                 </div>
-                <button onClick={() => window.location.reload()} className="ml-auto shrink-0 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition-all active:scale-95">
+                <button onClick={() => window.location.reload()} className="ml-auto shrink-0 px-3 py-1.5 rounded-lg sm:rounded-xl bg-emerald-600 text-white text-[10px] font-black hover:bg-emerald-700 transition-all active:scale-95">
                   Refresh
                 </button>
               </div>
             )}
 
             {/* Performance Insight */}
-            <div className="p-5 rounded-2xl border relative overflow-hidden" style={{ background: `${scoreColor}08`, borderColor: `${scoreColor}20` }}>
-              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mb-2 flex items-center gap-1.5 text-[#1a2340]">
-                <LightbulbIcon size={10} /> Performance Analysis
+            <div className="p-3.5 sm:p-4 rounded-xl border relative overflow-hidden" style={{ background: `${scoreColor}08`, borderColor: `${scoreColor}20` }}>
+              <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest opacity-40 mb-1.5 flex items-center gap-1 text-[#1a2340]">
+                <LightbulbIcon size={10} /> Insight
               </div>
-              <p className="text-sm leading-relaxed font-bold italic text-[#1a2340]/80">
+              <p className="text-xs sm:text-sm leading-relaxed font-bold italic text-[#1a2340]/80">
                 {finalSummary.total > 0 && finalSummary.correct / finalSummary.total === 1
-                  ? "🌟 Perfect score! You have mastered this topic completely. Exceptional!"
+                  ? "🌟 Perfect score! You're a master."
                   : finalSummary.total > 0 && finalSummary.correct / finalSummary.total >= 0.8
-                    ? "🎯 Excellent! You've demonstrated high proficiency. Solid performance!"
+                    ? "🎯 Excellent! High proficiency achieved."
                     : finalSummary.total > 0 && finalSummary.correct / finalSummary.total >= 0.5
-                      ? "📈 Good progress! Review the missed questions below to level up."
-                      : "💪 Keep going! Every attempt builds your knowledge. Review and retry!"}
+                      ? "📈 Good progress! Review missed items below."
+                      : "💪 Keep building! Review and retry!"}
               </p>
             </div>
 
@@ -1869,20 +1881,29 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
             </div>
           </div>
 
-          {/* Sticky Footer Buttons */}
-          <div className="shrink-0 p-5 border-t border-[#e8eaf0] bg-[#f8fafc] space-y-2.5 shadow-sm">
-            <button onClick={handleDownload} disabled={downloading} className="w-full h-14 rounded-2xl bg-emerald-500 text-white font-black text-base shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2.5 uppercase tracking-wide">
-              {downloading ? "⏳ Preparing..." : <><DownloadIcon size={18} /> Download Report</>}
-            </button>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button type="button" onClick={() => setShowQaModalFirst(true)} className="h-12 rounded-2xl bg-blue-50 border border-blue-100 text-[#7c3aed] font-black text-xs hover:bg-blue-100 transition-all uppercase tracking-widest flex items-center justify-center gap-1.5">
-                <FileTextIcon size={13} /> Review Q&A
+          {/* Sticky Footer Buttons - Premium Action Row */}
+          <div className="shrink-0 p-4 sm:p-5 border-t border-[#e8eaf0] bg-white space-y-3 shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col gap-2.5">
+              <button onClick={handleDownload} disabled={downloading} className="w-full h-12 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide">
+                {downloading ? "⏳ Preparing..." : <><DownloadIcon size={18} /> Download Results</>}
               </button>
-              <button type="button" onClick={() => {
-                const text = encodeURIComponent(`🏆 IQ Earners Quiz Result!\n\nScore: ${finalSummary.correct}/${finalSummary.total} (${correctPct}%)\nTime: ${finalSummary.totalTimeSeconds.toFixed(1)}s\n\nCan you beat my score? 💰\nhttps://www.iqearners.online`)
-                window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank")
-              }} className="h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 font-black text-xs hover:bg-emerald-100 transition-all uppercase tracking-widest flex items-center justify-center gap-1.5">
-                🔗 Share Score
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button type="button" onClick={() => setShowQaModalFirst(true)} className="h-12 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 font-black text-[10px] hover:bg-slate-100 transition-all uppercase tracking-widest flex flex-col items-center justify-center gap-0.5">
+                  <FileTextIcon size={14} className="text-primary" />
+                  <span>View Analysis</span>
+                </button>
+                <button type="button" onClick={() => {
+                  const text = encodeURIComponent(`🔥 I just scored ${finalSummary.correct}/${finalSummary.total} on IQ Earners!\n\nCan you beat me? 🏆\nChallenge link: https://www.iqearners.online?challenge=${currentQuizId || "daily"}&from=${username || "a-pro-player"}`)
+                  window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank")
+                }} className="h-12 rounded-2xl bg-primary/5 border border-primary/20 text-primary font-black text-[10px] hover:bg-primary/10 transition-all uppercase tracking-widest flex flex-col items-center justify-center gap-0.5">
+                  <SparklesIcon size={14} />
+                  <span>Challenge Friend</span>
+                </button>
+              </div>
+
+              <button type="button" onClick={() => router.push("/home")} className="h-11 w-full rounded-2xl bg-[#f0f4ff] border border-blue-100 text-blue-600 font-black text-[9px] hover:bg-[#e6effd] transition-all uppercase tracking-[0.2em] flex flex-col items-center justify-center">
+                <span>Main Dashboard</span>
               </button>
             </div>
           </div>
@@ -1973,7 +1994,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     return (
       <div ref={quizContainerRef} className="space-y-6 animate-fade">
         <div className="card p-8 max-w-md mx-auto text-center border-2 border-amber-500/50">
-          <div className="flex justify-center mb-4"><AlertIcon size={48} className="text-amber-500" /></div>
+          <div className="flex justify-center mb-4"><AlertIcon size={48} className="text-amber-50" /></div>
           <div className="text-2xl font-bold text-amber-400">{t.accountBlocked}</div>
           <p className="mt-4 text-white/80">{blockReason || t.exceededLimit}</p>
           <p className="mt-4 text-sm text-amber-400">{t.loggingOut}</p>
@@ -1987,7 +2008,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
     return (
       <div ref={quizContainerRef} className="space-y-6 animate-fade">
         <div className="text-center mb-4">
-          <h2 className="text-xl font-bold text-white">{t.noQuizAvailable}</h2>
+          <h2 className="text-xl font-bold text-white">Daily IQ Challenge</h2>
           <p className="text-sm text-white/60 mt-1">{t.noQuizTrackProgress}</p>
         </div>
         <QuizLaunchProgressBar />
@@ -2179,13 +2200,13 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
 
           <div className="relative z-10 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-400/30 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase tracking-[0.3em] mb-6">
-              Evaluation Sector
+              Practice Center
             </div>
-            
+
             <h2 className="text-3xl sm:text-5xl font-black ink-text leading-tight mb-4 tracking-tighter">
               {t.practiceQuiz}
             </h2>
-            
+
             <p className="text-sm sm:text-base font-bold ink-subtext italic mb-10 decoration-amber-500/20 dark:decoration-amber-400/30 underline underline-offset-8">
               {t.youHaveQuestions.replace("{n}", String(questions.length))}
             </p>
@@ -2252,12 +2273,12 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
 
 
   return (
-    <div ref={quizContainerRef} className="fixed inset-0 z-[50] flex flex-col bg-[#f3f5fb] dark:bg-[#0b1220] overflow-hidden animate-fade h-[100dvh] w-full text-slate-900 dark:text-slate-100">
+    <div ref={quizContainerRef} className="fixed inset-0 z-[50] flex flex-col bg-[#f3f5fb] dark:bg-[#0b1220] overflow-hidden animate-fade h-[100dvh] w-full text-slate-900 dark:text-slate-100 daily-quiz-premium">
       {/* Integrity & Status Overlays */}
       <NotificationBanner />
       {/* Final 10s Alert Overlay */}
       {secondsLeft <= 10 && secondsLeft > 0 && !finished && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 0.2, 0] }}
           transition={{ duration: 1, repeat: Infinity }}
@@ -2309,7 +2330,9 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
               <AlertIcon size={32} className="text-amber-600" />
             </div>
             <h3 className="text-2xl font-black text-[#1a2340] mb-3">Integrity Notice</h3>
-            <p className="text-[#64748b] font-black mb-6 leading-relaxed">You switched tabs or exited fullscreen. Please focus on the quiz. Multiple violations will result in an account block.</p>
+            <p className="text-[#64748b] font-black mb-6 leading-relaxed">
+              You switched tabs or exited fullscreen. Please focus on the quiz. You get three warnings for this quiz session; the third warning blocks your account until you pay to unblock.
+            </p>
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e8eaf0]">
                 <div className="text-[10px] uppercase font-black text-[#64748b]/40 mb-1">Warnings</div>
@@ -2362,24 +2385,15 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                 </div>
               )}
               {quizStarted && timerActive && !finished && !blocked && (
-                <>
-                  <Link
-                    href="/user?tab=ContactUs"
-                    prefetch={false}
-                    className="inline-flex items-center justify-center px-2 py-2 sm:px-2.5 rounded-xl border border-[#e8eaf0] bg-[#f8fafc] text-[9px] sm:text-[10px] font-black uppercase tracking-wide text-[#1a2340] hover:bg-[#f1f5f9] transition-all dark:bg-slate-800 dark:border-white/10 dark:text-slate-100 whitespace-nowrap"
-                  >
-                    Help
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => openReport()}
-                    className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-red-200 bg-red-500/90 text-white flex items-center justify-center text-sm shadow-md hover:bg-red-500 transition-all active:scale-95"
-                    aria-label="Report an issue"
-                    title="Report an issue"
-                  >
-                    🚩
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => openReport()}
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-red-200 bg-red-500/90 text-white flex items-center justify-center text-sm shadow-md hover:bg-red-500 transition-all active:scale-95"
+                  aria-label="Report an issue"
+                  title="Report an issue"
+                >
+                  🚩
+                </button>
               )}
             </div>
           </div>
@@ -2407,8 +2421,8 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       </div>
 
       {/* Main Content Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto w-full scrollbar-hidden overscroll-contain pt-6 pb-[max(10rem,calc(6.25rem+env(safe-area-inset-bottom,0px)))]">
-        <div className="max-w-2xl mx-auto px-6 space-y-8">
+      <div className="flex-1 overflow-y-auto w-full scrollbar-hidden overscroll-contain pt-4 pb-[max(8rem,calc(5rem+env(safe-area-inset-bottom,0px)))]">
+        <div className="max-w-lg mx-auto px-4 sm:px-5 space-y-5">
           {/* Question Segment */}
           {!current ? (
             <div className="py-12"><NoQuizPlaceholder /></div>
@@ -2422,7 +2436,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
           ) : (
             <div className="animate-slide-up">
               {/* Question Header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">{current.category}</span>
                   <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg bg-blue-50 text-[#7c3aed] border border-blue-100 shadow-sm">{current.difficulty}</span>
@@ -2450,7 +2464,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
               </div>
 
               {/* Question Text */}
-              <h2 className="text-2xl sm:text-4xl font-black text-[#1a2340] leading-tight mb-8">
+              <h2 className="text-lg sm:text-2xl font-black text-[#1a2340] leading-snug mb-5">
                 {current.question}
               </h2>
 
@@ -2474,16 +2488,16 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
               )}
 
               {/* Options Grid */}
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {current.options.map((opt, i) => {
                   const isSelected = i === selected
                   return (
                     <motion.button
                       key={i}
                       ref={i === 0 ? firstOptionRef : undefined}
-                      whileHover={{ x: 5, scale: 1.01 }}
+                      whileHover={{ x: 3, scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`w-full group rounded-3xl p-5 text-left transition-all duration-300 border-2 flex items-center justify-between gap-4 outline-none ${isSelected ? "bg-[#1a2340] text-white border-[#1a2340] shadow-2xl" : "bg-white border-[#e8eaf0] hover:border-[#7c3aed]/30 hover:shadow-lg active:scale-[0.98]"}`}
+                      className={`w-full group rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-300 border-2 flex items-center justify-between gap-3 outline-none ${isSelected ? "bg-[#1a2340] text-white border-[#1a2340] shadow-xl" : "bg-white border-[#e8eaf0] hover:border-[#7c3aed]/30 hover:shadow-md active:scale-[0.98]"}`}
                       onClick={() => {
                         if (quizEnded || anotherTabOpen || answered) return
                         setSelected(i)
@@ -2491,21 +2505,21 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                           void triggerHapticImpact("light")
                           const ping = new Audio("https://assets.mixkit.co/active_storage/sfx/221/221-preview.mp3")
                           ping.volume = 0.2
-                          ping.play().catch(() => {})
+                          ping.play().catch(() => { })
                         } catch { }
                       }}
                       disabled={quizEnded || anotherTabOpen || answered}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs border transition-all ${isSelected ? "bg-white text-[#1a2340] border-white" : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0] group-hover:bg-[#e2e8f0]"}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[10px] border transition-all shrink-0 ${isSelected ? "bg-white text-[#1a2340] border-white" : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0] group-hover:bg-[#e2e8f0]"}`}>
                           {String.fromCharCode(65 + i)}
                         </div>
-                        <span className={`font-black text-base sm:text-xl leading-tight transition-colors ${isSelected ? "text-white" : "text-[#1a2340]"}`}>
+                        <span className={`font-bold text-sm sm:text-base leading-snug transition-colors break-words text-left ${isSelected ? "text-white" : "text-[#1a2340]"}`}>
                           {opt}
                         </span>
                       </div>
-                      <div className={`shrink-0 w-6 h-6 rounded-full border-2 transition-all ${isSelected ? "border-white bg-white" : "border-[#e8eaf0] group-hover:border-[#7c3aed]/30 group-hover:scale-110"}`}>
-                        {isSelected && <CheckIcon size={16} className="text-[#1a2340]" />}
+                      <div className={`shrink-0 w-5 h-5 rounded-full border-2 transition-all ${isSelected ? "border-white bg-white" : "border-[#e8eaf0] group-hover:border-[#7c3aed]/30 group-hover:scale-110"}`}>
+                        {isSelected && <CheckIcon size={14} className="text-[#1a2340]" />}
                       </div>
                     </motion.button>
                   )
@@ -2528,17 +2542,17 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
       </div>
 
       {/* Footer Section - Light */}
-      <div className="shrink-0 z-[101] bg-white border-t border-[#e8eaf0] p-4 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom,0px)+1rem)] sm:pb-8 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:bg-slate-900 dark:border-white/10">
-        <div className="max-w-2xl mx-auto flex gap-4 sm:gap-6">
+      <div className="shrink-0 z-[101] bg-white border-t border-[#e8eaf0] p-3 sm:p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px)+0.75rem)] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:bg-slate-900 dark:border-white/10">
+        <div className="max-w-lg mx-auto flex gap-3 sm:gap-4">
           {canGoPrevious && (
             <button
               type="button"
               onClick={goToPrevious}
               disabled={quizEnded || anotherTabOpen}
-              className="h-16 w-16 sm:w-auto sm:px-8 rounded-3xl bg-[#f8fafc] border border-[#e8eaf0] text-[#1a2340] flex items-center justify-center hover:bg-[#f1f5f9] transition-all active:scale-90 disabled:opacity-30"
+              className="h-12 w-12 sm:w-auto sm:px-5 rounded-2xl bg-[#f8fafc] border border-[#e8eaf0] text-[#1a2340] flex items-center justify-center hover:bg-[#f1f5f9] transition-all active:scale-90 disabled:opacity-30"
             >
               <RefreshIcon size={24} className="-scale-x-100" />
-              <span className="hidden sm:inline-block ml-3 font-black text-lg uppercase">Back</span>
+              <span className="hidden sm:inline-block ml-2 font-black text-sm uppercase">Back</span>
             </button>
           )}
 
@@ -2551,7 +2565,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                   if (inReview) advanceReviewQuestion(timeTaken, false, -1)
                   else advanceQuestion(timeTaken, false, -1)
                 }}
-                className="flex-1 h-16 rounded-3xl bg-[#f8fafc] border border-[#e8eaf0] text-[#64748b] font-black text-lg hover:bg-[#f1f5f9] hover:text-[#1a2340] transition-all active:scale-95 uppercase"
+                className="flex-1 h-12 rounded-2xl bg-[#f8fafc] border border-[#e8eaf0] text-[#64748b] font-black text-sm hover:bg-[#f1f5f9] hover:text-[#1a2340] transition-all active:scale-95 uppercase"
                 disabled={quizEnded || anotherTabOpen}
               >
                 Skip
@@ -2566,7 +2580,7 @@ export default function DailyQuiz({ fullscreenContainerRef, onFullscreenChange }
                 if (inReview) advanceReviewQuestion(timeTaken, correct, selected ?? -1)
                 else advanceQuestion(timeTaken, correct, selected ?? -1)
               }}
-              className={`flex-[2] h-16 rounded-3xl font-black text-lg transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-wide disabled:opacity-30 ${answered || inReview ? "bg-emerald-500 text-black shadow-emerald-500/20" : "bg-primary text-black shadow-primary/20"}`}
+              className={`flex-[2] h-12 rounded-2xl font-black text-sm sm:text-base transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide disabled:opacity-30 ${answered || inReview ? "bg-emerald-500 text-black shadow-emerald-500/20" : "bg-primary text-black shadow-primary/20"}`}
               disabled={quizEnded || anotherTabOpen || (selected === null && !answered)}
             >
               <span>

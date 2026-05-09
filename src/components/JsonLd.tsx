@@ -1,4 +1,13 @@
-import { SITE_URL, SITE_NAME, PARENT_COMPANY_NAME, DEFAULT_OG_IMAGE_URL } from "@/lib/seo"
+import {
+  SITE_URL,
+  SITE_NAME,
+  PARENT_COMPANY_NAME,
+  DEFAULT_OG_IMAGE_URL,
+  SITE_LOGO_URL,
+  OG_IMAGE_WIDTH,
+  OG_IMAGE_HEIGHT,
+  SUPPORT_EMAIL,
+} from "@/lib/seo"
 
 /**
  * JSON-LD structured data — AI-optimised for India's quiz niche.
@@ -29,7 +38,14 @@ export default function JsonLd() {
     author: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
     inLanguage: "en-IN",
     availableOnDevice: ["Desktop", "Mobile", "Tablet"],
-    screenshot: DEFAULT_OG_IMAGE_URL,
+    screenshot: {
+      "@type": "ImageObject",
+      url: DEFAULT_OG_IMAGE_URL,
+      width: OG_IMAGE_WIDTH,
+      height: OG_IMAGE_HEIGHT,
+      caption: `${SITE_NAME} app preview`,
+    },
+    image: SITE_LOGO_URL,
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.7",
@@ -55,9 +71,8 @@ export default function JsonLd() {
     parentOrganization: parentOrgNode,
     logo: {
       "@type": "ImageObject",
-      url: DEFAULT_OG_IMAGE_URL,
-      width: 512,
-      height: 512,
+      url: SITE_LOGO_URL,
+      caption: SITE_NAME,
     },
     description:
       `IQ Earners — India's best online quiz platform (parent company: ${PARENT_COMPANY_NAME}). Daily GK quizzes, live tournaments, prizes & certificates. Est. 2024.`,
@@ -66,7 +81,7 @@ export default function JsonLd() {
     knowsLanguage: ["en-IN", "te", "hi"],
     contactPoint: {
       "@type": "ContactPoint",
-      email: "contact@iqearners.online",
+      email: SUPPORT_EMAIL,
       contactType: "customer support",
       availableLanguage: ["English", "Hindi", "Telugu"],
     },

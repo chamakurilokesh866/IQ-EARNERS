@@ -76,9 +76,11 @@ export async function storeForgotOtp(username: string, otp: string): Promise<voi
   await writeOtpStore(store)
 }
 
-/** Normalize user input: uppercase, strip spaces, match IQPR-XX-XX. */
+/** Normalize user input: uppercase, strip spaces. Accept full `IQPS-###` or just the 3 digits. */
 export function normalizeForgotOtpInput(input: string): string {
-  return String(input).trim().toUpperCase().replace(/\s/g, "")
+  const s = String(input).trim().toUpperCase().replace(/\s/g, "")
+  if (/^\d{3}$/.test(s)) return `IQPS-${s}`
+  return s
 }
 
 export async function verifyForgotOtp(username: string, otp: string): Promise<boolean> {

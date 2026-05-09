@@ -2,9 +2,29 @@
 
 import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
-import { backendAwareApi } from "@/lib/backendApi"
+import { isValidUrlOrPath } from "@/lib/inputValidation"
 
 const TargetAudienceCard = dynamic(() => import("../TargetAudienceCard"), { ssr: false })
+
+function useUnsavedChangesPrompt(hasUnsaved: boolean) {
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [hasUnsaved])
+}
+
+function SettingsStatusToast({ type, message }: { type: "success" | "error"; message: string }) {
+  const cls =
+    type === "success"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+      : "border-red-500/40 bg-red-500/10 text-red-300"
+  return <p className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${cls}`}>{message}</p>
+}
 
 export function VipModalSettingsCard() {
   const [enabled, setEnabled] = useState(false)
@@ -15,6 +35,8 @@ export function VipModalSettingsCard() {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [initialState, setInitialState] = useState("")
 
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store", credentials: "include" })
@@ -26,11 +48,32 @@ export function VipModalSettingsCard() {
         setImage(d.image ?? "")
         setButtonText(d.buttonText ?? "")
         setLink(d.link ?? "")
+        setInitialState(JSON.stringify({
+          enabled: !!d.enabled,
+          title: d.title ?? "",
+          image: d.image ?? "",
+          buttonText: d.buttonText ?? "",
+          link: d.link ?? "",
+        }))
       })
       .catch(() => { })
   }, [])
 
+  const currentState = JSON.stringify({
+    enabled,
+    title: title.trim(),
+    image: image.trim(),
+    buttonText: buttonText.trim(),
+    link: link.trim(),
+  })
+  const hasUnsaved = !!initialState && currentState !== initialState
+  useUnsavedChangesPrompt(hasUnsaved)
+
   const save = async () => {
+    if (!isValidUrlOrPath(link)) {
+      setError("Enter a valid https:// URL or relative path like /tournaments.")
+      return
+    }
     setLoading(true)
     setError(null)
     setSaved(false)
@@ -45,6 +88,7 @@ export function VipModalSettingsCard() {
       })
       if (res.ok) {
         setSaved(true)
+        setInitialState(currentState)
         setTimeout(() => setSaved(false), 2000)
       } else {
         const j = await res.json().catch(() => ({}))
@@ -87,7 +131,7 @@ export function VipModalSettingsCard() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="font-semibold text-lg">VIP Modal Popup</div>
-          <p className="text-sm text-navy-400">Control the promotional VIP popup on the home page.</p>
+          <p className="text-sm text-navy-400">This popup appears on homepage after ~3 seconds for eligible users.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -105,16 +149,16 @@ export function VipModalSettingsCard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-navy-300 block mb-1">Modal Title</label>
-            <input type="text" placeholder="e.g. Special VIP Offer" value={title} onChange={(e) => setTitle(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2" />
+            <input type="text" placeholder="Enter popup title" value={title} onChange={(e) => setTitle(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2" />
           </div>
           <div>
             <label className="text-sm text-navy-300 block mb-1">Button Text</label>
-            <input type="text" placeholder="e.g. Join Now" value={buttonText} onChange={(e) => setButtonText(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2 text-white" />
+            <input type="text" placeholder="Enter button text" value={buttonText} onChange={(e) => setButtonText(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2 text-white" />
           </div>
         </div>
         <div>
           <label className="text-sm text-navy-300 block mb-1">Target Link (URL or relative path)</label>
-          <input type="text" placeholder="e.g. /tournaments" value={link} onChange={(e) => setLink(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2" />
+          <input type="text" placeholder="https://example.com/offer or /tournaments" value={link} onChange={(e) => setLink(e.target.value)} className="input-glass rounded-lg w-full px-4 py-2" />
         </div>
 
         <div>
@@ -140,9 +184,25 @@ export function VipModalSettingsCard() {
 
         <div className="flex items-center gap-3 pt-2">
           <button className="admin-btn admin-btn-primary" onClick={save} disabled={loading}>{loading ? "Saving…" : "Save Settings"}</button>
-          {saved && <span className="text-sm text-success font-medium animate-in fade-in slide-in-from-left-2">✓ Saved</span>}
-          {error && <span className="text-sm text-red-400 font-medium">⚠ {error}</span>}
+          <button type="button" className="admin-btn admin-btn-ghost" onClick={() => setPreviewOpen((v) => !v)}>
+            {previewOpen ? "Hide Preview" : "Preview Modal"}
+          </button>
+          {hasUnsaved && <span className="text-xs text-amber-300">Unsaved changes</span>}
         </div>
+        {saved && <SettingsStatusToast type="success" message="Settings saved successfully." />}
+        {error && <SettingsStatusToast type="error" message={error} />}
+        {previewOpen && (
+          <div className="mt-2 rounded-xl border border-navy-600 bg-navy-900/60 p-4">
+            <div className="text-[10px] text-navy-400 uppercase font-bold tracking-widest mb-2">Preview</div>
+            <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+              <div className="font-semibold text-white">{title.trim() || "Your popup title appears here"}</div>
+              {!!image && <img src={image} alt="VIP promo preview" className="mt-3 max-h-44 w-full object-cover rounded" />}
+              <button type="button" className="mt-3 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-navy-950">
+                {buttonText.trim() || "Action button"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -311,7 +371,7 @@ export function MockExamSettingsCard() {
   const [deleteCourse, setDeleteCourse] = useState<"main" | "mpc" | "bipc" | "cert" | "all">("main")
 
   useEffect(() => {
-    fetch(backendAwareApi("/api/admin/quiz/ai-status"), { cache: "no-store", credentials: "include" })
+    fetch("/api/admin/quiz/ai-status", { cache: "no-store", credentials: "include" })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => setMockExamAiConfigured(j?.mockExamConfigured ?? false))
       .catch(() => setMockExamAiConfigured(false))
@@ -374,7 +434,7 @@ export function MockExamSettingsCard() {
         const { data: publicData } = supabase.storage.from("uploads").getPublicUrl(fileName)
         targetUrl = publicData.publicUrl
       }
-      const res = await fetch(backendAwareApi("/api/admin/mock-exam-upload"), {
+      const res = await fetch("/api/admin/mock-exam-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pdfUrl: targetUrl, merge: appendMode, maxChunks: quickMode ? 1 : 999, targetCourse: pdfTargetCourse }),
@@ -394,7 +454,7 @@ export function MockExamSettingsCard() {
     setAiGenerating(true)
     setMessage("")
     try {
-      const res = await fetch(backendAwareApi("/api/admin/mock-exam/generate"), {
+      const res = await fetch("/api/admin/mock-exam/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -412,7 +472,7 @@ export function MockExamSettingsCard() {
     if (!confirm("Are you sure?")) return
     setLoading(true)
     try {
-      const res = await fetch(`${backendAwareApi("/api/admin/mock-exam-upload")}?course=${deleteCourse}`, { method: "DELETE", credentials: "include" })
+      const res = await fetch(`/api/admin/mock-exam-upload?course=${deleteCourse}`, { method: "DELETE", credentials: "include" })
       if (res.ok) setMessage("Deleted successfully.")
     } finally {
       setLoading(false)
@@ -550,26 +610,49 @@ export function SeoSettingsCard() {
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [initialState, setInitialState] = useState("")
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store", credentials: "include" }).then(r => r.ok ? r.json() : null).then(j => { if (!j) return
       setTitle(j?.data?.seoTitle ?? "")
       setDescription(j?.data?.seoDescription ?? "")
+      setInitialState(JSON.stringify({ title: j?.data?.seoTitle ?? "", description: j?.data?.seoDescription ?? "" }))
     }).catch(() => {})
   }, [])
+  const currentState = JSON.stringify({ title, description })
+  const hasUnsaved = !!initialState && currentState !== initialState
+  useUnsavedChangesPrompt(hasUnsaved)
   const save = async () => {
     setLoading(true)
-    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seoTitle: title, seoDescription: description }) })
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    setError(null)
+    const normalizedTitle = title.trim().slice(0, 70)
+    const normalizedDescription = description.trim().slice(0, 180)
+    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ seoTitle: normalizedTitle, seoDescription: normalizedDescription }) })
+    if (res.ok) {
+      setSaved(true)
+      setInitialState(JSON.stringify({ title: normalizedTitle, description: normalizedDescription }))
+      setTimeout(() => setSaved(false), 2000)
+    } else {
+      setError("Failed to save SEO settings.")
+    }
     setLoading(false)
   }
   return (
     <div className="admin-card p-6">
       <div className="font-semibold">SEO Settings</div>
       <div className="mt-4 space-y-3">
-        <input className="input-glass w-full rounded-lg px-4 py-2" placeholder="Site Title" value={title} onChange={e => setTitle(e.target.value)} />
-        <textarea className="input-glass w-full rounded-lg px-4 py-2" placeholder="Meta Description" value={description} onChange={e => setDescription(e.target.value)} />
+        <input className="input-glass w-full rounded-lg px-4 py-2" placeholder="Meta title for Google search" value={title} onChange={e => setTitle(e.target.value)} />
+        <textarea className="input-glass w-full rounded-lg px-4 py-2" placeholder="Meta description shown in search results" value={description} onChange={e => setDescription(e.target.value)} />
+        <div className="rounded-xl border border-navy-600 bg-navy-900/60 p-4">
+          <div className="text-[10px] text-navy-400 uppercase font-bold tracking-widest mb-2">Google preview</div>
+          <div className="text-blue-300 text-base leading-tight">{title.trim() || "Your SEO title appears here"}</div>
+          <div className="text-emerald-300/80 text-xs mt-1">https://www.iqearners.online</div>
+          <div className="text-sm text-white/70 mt-1">{description.trim() || "Your meta description appears here."}</div>
+        </div>
         <button className="admin-btn admin-btn-primary" onClick={save} disabled={loading}>{loading ? "Saving…" : "Save SEO"}</button>
-        {saved && <span className="ml-2 text-success">Saved</span>}
+        {saved && <SettingsStatusToast type="success" message="Settings saved successfully." />}
+        {error && <SettingsStatusToast type="error" message={error} />}
+        {hasUnsaved && <p className="text-xs text-amber-300">Unsaved changes</p>}
       </div>
     </div>
   )
@@ -605,19 +688,33 @@ export function DemoQuestionsToggle() {
 export function MaintenanceModeToggle() {
   const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store", credentials: "include" })
       .then(r => r.ok ? r.json() : null).then(j => { if (j) setEnabled(!!j?.data?.maintenanceMode) }).catch(() => {})
   }, [])
   const save = async () => {
+    const next = !enabled
+    if (next && !confirm("Enabling maintenance will block all users except admins. Continue?")) return
     setLoading(true)
-    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maintenanceMode: !enabled }) })
-    if (res.ok) setEnabled(!enabled)
+    setMessage(null)
+    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ maintenanceMode: next }) })
+    if (res.ok) {
+      setEnabled(next)
+      setMessage("Settings saved successfully.")
+    } else {
+      setMessage("Failed to update maintenance mode.")
+    }
     setLoading(false)
   }
   return (
     <div className="admin-card p-6 border-red-500/20 flex items-center justify-between">
-      <div><div className="font-semibold text-lg text-primary">Maintenance Mode</div><p className="text-sm text-navy-400">Redirects all non-admin users to a maintenance page. Used for DB migrations or major updates.</p></div>
+      <div>
+        <div className="font-semibold text-lg text-primary">Maintenance Mode</div>
+        <p className="text-sm text-navy-400">Redirects all non-admin users to a maintenance page. Used for DB migrations or major updates.</p>
+        <p className="text-xs text-amber-300 mt-1">⚠ Enabling will block all users except admins.</p>
+        {message && <SettingsStatusToast type={message.includes("Failed") ? "error" : "success"} message={message} />}
+      </div>
       <button onClick={save} disabled={loading} className={`relative w-14 h-8 rounded-full transition-colors ${enabled ? "bg-primary" : "bg-navy-600"}`}>
         <span className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all ${enabled ? "left-7" : "left-1"}`} />
       </button>
@@ -629,14 +726,41 @@ export function SocialMediaCard() {
   const [links, setLinks] = useState({ instagram: "", facebook: "", twitter: "", telegram: "" })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [initialState, setInitialState] = useState("")
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store", credentials: "include" })
       .then(r => r.ok ? r.json() : null).then(j => { if (j) setLinks(j?.data?.socialLinks ?? { instagram: "", facebook: "", twitter: "", telegram: "" }) }).catch(() => {})
+    fetch("/api/settings", { cache: "no-store", credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const data = j?.data?.socialLinks ?? { instagram: "", facebook: "", twitter: "", telegram: "" }
+        setInitialState(JSON.stringify(data))
+      })
+      .catch(() => {})
   }, [])
+  const hasUnsaved = !!initialState && JSON.stringify(links) !== initialState
+  useUnsavedChangesPrompt(hasUnsaved)
   const save = async () => {
     setLoading(true); setSaved(false)
-    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ socialLinks: links }) })
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    setError(null)
+    const entries = Object.entries(links) as Array<[keyof typeof links, string]>
+    for (const [k, v] of entries) {
+      if (v.trim() && !isValidUrlOrPath(v)) {
+        setError(`${k} must be a valid https:// URL.`)
+        setLoading(false)
+        return
+      }
+    }
+    const cleaned = Object.fromEntries(entries.map(([k, v]) => [k, v.trim()]))
+    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ socialLinks: cleaned }) })
+    if (res.ok) {
+      setSaved(true)
+      setInitialState(JSON.stringify(cleaned))
+      setTimeout(() => setSaved(false), 2000)
+    } else {
+      setError("Failed to save social links.")
+    }
     setLoading(false)
   }
   return (
@@ -646,11 +770,24 @@ export function SocialMediaCard() {
         {Object.keys(links).map(k => (
           <div key={k}>
             <label className="text-xs text-navy-400 uppercase font-bold mb-1 block">{k}</label>
-            <input className="input-glass w-full rounded px-3 py-2 text-sm" placeholder={`https://${k}.com/...`} value={(links as any)[k]} onChange={e => setLinks({ ...links, [k]: e.target.value })} />
+            <div className="flex gap-2">
+              <input className="input-glass w-full rounded px-3 py-2 text-sm" placeholder={`https://${k}.com/yourpage`} value={(links as any)[k]} onChange={e => setLinks({ ...links, [k]: e.target.value })} />
+              <a
+                href={(links as any)[k] || "#"}
+                target="_blank"
+                rel="noreferrer"
+                className={`admin-btn admin-btn-ghost text-xs ${!(links as any)[k] ? "pointer-events-none opacity-50" : ""}`}
+              >
+                Open
+              </a>
+            </div>
           </div>
         ))}
       </div>
       <button onClick={save} disabled={loading} className="admin-btn admin-btn-primary mt-4 w-full">{loading ? "Saving…" : "Save Social Links"}</button>
+      {saved && <SettingsStatusToast type="success" message="Settings saved successfully." />}
+      {error && <SettingsStatusToast type="error" message={error} />}
+      {hasUnsaved && <p className="mt-2 text-xs text-amber-300">You have unsaved changes.</p>}
     </div>
   )
 }
@@ -658,14 +795,21 @@ export function SocialMediaCard() {
 export function NavbarLayoutCard() {
   const [layout, setLayout] = useState<"horizontal" | "vertical">("horizontal")
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store", credentials: "include" })
       .then(r => r.ok ? r.json() : null).then(j => { if (j) setLayout(j?.data?.navbarLayout ?? "horizontal") }).catch(() => {})
   }, [])
   const save = async (l: "horizontal" | "vertical") => {
     setLoading(true)
-    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ navbarLayout: l }) })
-    if (res.ok) setLayout(l)
+    setMessage(null)
+    const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ navbarLayout: l }) })
+    if (res.ok) {
+      setLayout(l)
+      setMessage("Settings saved successfully.")
+    } else {
+      setMessage("Failed to save navbar layout.")
+    }
     setLoading(false)
   }
   return (
@@ -674,12 +818,15 @@ export function NavbarLayoutCard() {
       <p className="text-sm text-navy-400 mb-4">Choose how the main navigation is displayed on desktop screens.</p>
       <div className="flex gap-4">
         <button onClick={() => save("horizontal")} disabled={loading} className={`flex-1 p-4 rounded-xl border-2 transition-all ${layout === "horizontal" ? "border-primary bg-primary/5" : "border-navy-700 bg-navy-800/20"}`}>
-          <div className="text-sm font-bold">Horizontal Top Bar</div>
+          <div className="text-sm font-bold flex items-center justify-center gap-2">⬒ Horizontal Top Bar</div>
+          <div className="text-[10px] text-navy-400 mt-1">{layout === "horizontal" ? "Active" : "Click to activate"}</div>
         </button>
         <button onClick={() => save("vertical")} disabled={loading} className={`flex-1 p-4 rounded-xl border-2 transition-all ${layout === "vertical" ? "border-primary bg-primary/5" : "border-navy-700 bg-navy-800/20"}`}>
-          <div className="text-sm font-bold">Vertical Sidebar</div>
+          <div className="text-sm font-bold flex items-center justify-center gap-2">▮ Vertical Sidebar</div>
+          <div className="text-[10px] text-navy-400 mt-1">{layout === "vertical" ? "Active" : "Click to activate"}</div>
         </button>
       </div>
+      {message && <SettingsStatusToast type={message.includes("Failed") ? "error" : "success"} message={message} />}
     </div>
   )
 }

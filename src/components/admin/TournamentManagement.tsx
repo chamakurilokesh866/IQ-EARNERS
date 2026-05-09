@@ -87,6 +87,7 @@ export default function TournamentManagement() {
       const fd = new FormData()
       fd.set("file", file)
       fd.set("title", form.title || file.name || "Tournament Quiz")
+      fd.set("quiz_type", "tournament")
       const res = await fetch("/api/quizzes/upload-tournament", { method: "POST", credentials: "include", body: fd })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j?.ok || !j?.id) throw new Error(j?.error || "Failed to upload quiz.")
@@ -107,7 +108,7 @@ export default function TournamentManagement() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ pdfUrl: url, title: form.title || "Tournament Quiz" })
+        body: JSON.stringify({ pdfUrl: url, title: form.title || "Tournament Quiz", quiz_type: "tournament" })
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j?.ok || !j?.id) throw new Error(j?.error || "Failed to extract from URL.")

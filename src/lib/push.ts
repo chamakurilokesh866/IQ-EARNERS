@@ -37,7 +37,7 @@ export async function sendPushNotification(payload: { title: string; body: strin
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         webpush = require("web-push")
-        webpush.setVapidDetails("mailto:admin@iqearners.pro", vapidPublic, vapidPrivate)
+        webpush.setVapidDetails("mailto:iqearnersteam@gmail.com", vapidPublic, vapidPrivate)
     } catch {
         console.warn("web-push not installed.")
         return { ok: false, error: "WEB_PUSH_MISSING" }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import crypto from "crypto"
-import { rateLimit } from "@/lib/rateLimit"
+import { rateLimitByAccount } from "@/lib/rateLimit"
 import { cookieOptions } from "@/lib/cookieOptions"
 import { getProfileByUsername, getProfileByUid, getProfileByEmail, upsertProfile, getProfiles, generateMemberId, formatReferralCode } from "@/lib/profiles"
 import { getPayments, updatePayment } from "@/lib/payments"
@@ -17,11 +17,11 @@ function getMetaUsername(meta: Record<string, unknown> | undefined): string {
 }
 
 export async function POST(req: Request) {
-  const rl = await rateLimit(req, "login")
-  if (!rl.ok) return NextResponse.json({ ok: false, error: "Too many attempts", retryAfter: rl.retryAfter }, { status: 429 })
   try {
     const body = await req.json().catch(() => ({}))
     const usernameOrEmail = String(body?.username ?? "").trim()
+    const rl = await rateLimitByAccount(req, "login", usernameOrEmail || "unknown")
+    if (!rl.ok) return NextResponse.json({ ok: false, error: "Too many attempts", retryAfter: rl.retryAfter }, { status: 429 })
     const password = String(body?.password ?? "").trim()
     const turnstileToken = typeof body?.turnstileToken === "string" ? body.turnstileToken.trim() : ""
     const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "").split(",")[0] || null
@@ -33,6 +33,28 @@ export async function POST(req: Request) {
 
     if (!usernameOrEmail) {
       return NextResponse.json({ ok: false, error: "Username or email is required" }, { status: 400 })
+    }
+
+    const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim()
+    const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim()
+    if (adminUsername && usernameOrEmail.toLowerCase() === adminUsername.toLowerCase()) {
+      if (password && adminPassword && password === adminPassword) {
+        const { createAdminSession, setAdminSessionCookie } = await import("@/lib/adminSession")
+        const { isAdminTotpEnabled } = await import("@/lib/adminTotp")
+        if (!isAdminTotpEnabled()) {
+          return NextResponse.json({ ok: false, error: "ADMIN_TOTP_SECRET not configured" }, { status: 500 })
+        }
+        const signed = createAdminSession()
+        const res = NextResponse.json({
+          ok: true,
+          step: "otp",
+          otpDigits: 6,
+          otpMode: "totp"
+        })
+        setAdminSessionCookie(res, signed)
+        return res
+      }
+      return NextResponse.json({ ok: true, needsPassword: true })
     }
 
     const isEmail = usernameOrEmail.includes("@")
@@ -54,19 +76,6 @@ export async function POST(req: Request) {
       res.cookies.set("blocked", "B", { path: "/", maxAge: 60 * 60 * 24, httpOnly: false })
       res.cookies.set("blocked_username", encodeURIComponent(blocked.username), { path: "/", maxAge: 60 * 60 * 24, httpOnly: false })
       return res
-    }
-
-    const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim()
-    const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim()
-    if (adminUsername && usernameOrEmail.toLowerCase() === adminUsername.toLowerCase()) {
-      if (password && adminPassword && password === adminPassword) {
-        const { createAdminSession, setAdminSessionCookie } = await import("@/lib/adminSession")
-        const signed = createAdminSession()
-        const res = NextResponse.json({ ok: true, step: "otp" })
-        setAdminSessionCookie(res, signed)
-        return res
-      }
-      return NextResponse.json({ ok: true, needsPassword: true })
     }
 
     if (!user) {
@@ -153,9 +162,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({ ok: true, data: user })
     const opts = cookieOptions({ maxAge: 60 * 60 * 24 * 365 })
     res.cookies.set("uid", user.uid, opts)
-    if (user.username) {
-      res.cookies.set("username", encodeURIComponent(user.username), opts)
-    }
+    const cookieUsername = String(user.username || usernameOrEmail || "").trim()
+    if (cookieUsername) res.cookies.set("username", encodeURIComponent(cookieUsername), opts)
     res.cookies.set("paid", "1", opts)
     const sid = crypto.randomBytes(16).toString("hex")
     res.cookies.set("sid", sid, opts)

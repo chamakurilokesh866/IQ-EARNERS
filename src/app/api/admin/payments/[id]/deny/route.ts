@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { getPayments, updatePayment } from "@/lib/payments"
 import { promises as fs } from "fs"
 import path from "path"
+import { requireAdminPermission, requireRecentAdminAuth, withRefreshedAdminAuth } from "@/lib/auth"
 
 const DATA_PATH = path.join(process.cwd(), "src", "data", "payments.json")
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
-  if (cookieStore.get("role")?.value !== "admin") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-  }
+  const perm = await requireAdminPermission("payment.deny")
+  if (!perm.ok) return NextResponse.json({ ok: false, error: perm.error }, { status: perm.status })
+  const recent = await requireRecentAdminAuth()
+  if (!recent.ok) return NextResponse.json({ ok: false, error: recent.error }, { status: recent.status })
   const { id } = await params
   if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
 
@@ -42,5 +42,5 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     } catch {}
   }
 
-  return NextResponse.json({ ok: true })
+  return withRefreshedAdminAuth(NextResponse.json({ ok: true }))
 }

@@ -5,7 +5,7 @@
  *   npm run cap:open:android   OR   npm run cap:open:ios
  */
 // Set CAPACITOR_APP_URL when building the app (e.g. https://www.iqearners.online)
-const APP_URL = process.env.CAPACITOR_APP_URL || "https://your-domain.com"
+const APP_URL = process.env.CAPACITOR_APP_URL || "https://www.iqearners.online"
 
 const config = {
   appId: "com.iqearners.app",

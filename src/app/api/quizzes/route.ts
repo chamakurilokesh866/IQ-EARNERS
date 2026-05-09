@@ -2,9 +2,12 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { requireAdmin } from "@/lib/auth"
 import { getQuizzes, addQuiz, type Quiz } from "@/lib/quizzes"
+import { importQuestionsFromBuffer } from "@/lib/importQuizFromBuffer"
 import { getTournaments } from "@/lib/tournaments"
 import { getUnblockedAt } from "@/lib/unblocked"
 import { isEnrolled } from "@/lib/enrollments"
+
+export const runtime = "nodejs"
 
 function parseCSV(text: string): { question: string; options: string[]; correct: number }[] {
   const lines = text.trim().split(/\r?\n/).filter(Boolean)
@@ -131,22 +134,40 @@ export async function POST(req: Request) {
     const form = await req.formData()
     const file = form.get("file") as File | null
     const title = String(form.get("title") ?? "Uploaded Quiz").trim() || "Uploaded Quiz"
+    const qtRaw = String(form.get("quiz_type") ?? "daily").toLowerCase()
+    const quizType: "daily" | "tournament" = qtRaw === "tournament" ? "tournament" : "daily"
     if (file) {
-      const text = await file.text()
       const ext = (file.name ?? "").toLowerCase()
-      if (ext.endsWith(".csv")) {
-        const questions = parseCSV(text)
-        if (questions.length) quizzes = [{ id: String(Date.now()), title, source_url: file.name, questions }]
-      } else if (ext.endsWith(".json")) {
-        try {
-          const parsed = JSON.parse(text)
-          const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.quizzes) ? parsed.quizzes : [parsed])
-          for (const q of arr) {
-            const t = typeof q?.title === "string" ? q.title : title
-            const qs = Array.isArray(q?.questions) ? normalizeQuestions(q.questions) : (Array.isArray(q?.question) ? normalizeQuestions(q) : [])
-            if (qs.length) quizzes.push({ id: q.id ?? String(Date.now() + Math.random()), title: t, source_url: file.name, questions: qs })
-          }
-        } catch { }
+      if (ext.endsWith(".pdf") || ext.endsWith(".xlsx") || ext.endsWith(".xls")) {
+        const buf = Buffer.from(await file.arrayBuffer())
+        const parsed = await importQuestionsFromBuffer(buf, file.name || "upload.bin")
+        if (parsed.ok && parsed.questions.length) {
+          quizzes = [{ id: String(Date.now()), title, source_url: file.name, questions: parsed.questions, quiz_type: quizType }]
+        }
+      } else {
+        const text = await file.text()
+        if (ext.endsWith(".csv")) {
+          const questions = parseCSV(text)
+          if (questions.length) quizzes = [{ id: String(Date.now()), title, source_url: file.name, questions, quiz_type: quizType }]
+        } else if (ext.endsWith(".json")) {
+          try {
+            const parsed = JSON.parse(text)
+            const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.quizzes) ? parsed.quizzes : [parsed])
+            for (const q of arr) {
+              const t = typeof q?.title === "string" ? q.title : title
+              const qs = Array.isArray(q?.questions) ? normalizeQuestions(q.questions) : (Array.isArray(q?.question) ? normalizeQuestions(q) : [])
+              if (qs.length) {
+                quizzes.push({
+                  id: q.id ?? String(Date.now() + Math.random()),
+                  title: t,
+                  source_url: file.name,
+                  questions: qs,
+                  quiz_type: q.quiz_type ?? quizType
+                })
+              }
+            }
+          } catch { }
+        }
       }
     }
   } else {

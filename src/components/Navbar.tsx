@@ -47,7 +47,7 @@ export default function Navbar() {
     <>
       {(true) && (
         <header
-          className={`ui-chrome-header relative overflow-hidden sticky top-0 z-40 mx-0 sm:mx-6 rounded-none sm:rounded-[1.75rem] border-b border-white/[0.12] bg-[#0a0618]/80 shadow-xl shadow-black/40 backdrop-blur-xl supports-[backdrop-filter]:bg-[#0a0618]/72 sm:border sm:border-primary/20 ${!useHorizontalNav ? "lg:!hidden" : ""}`}
+          className={`ui-chrome-header ui-chrome-nav relative overflow-hidden sticky top-0 z-40 mx-0 sm:mx-6 rounded-none sm:rounded-[1.75rem] border-b border-white/[0.12] bg-[#0a0618]/80 shadow-xl shadow-black/40 backdrop-blur-xl supports-[backdrop-filter]:bg-[#0a0618]/72 sm:border sm:border-primary/20 ${!useHorizontalNav ? "lg:!hidden" : ""}`}
         >
           <NavShellBackground variant="dark" />
           <div className="relative z-[3] mx-auto max-w-7xl w-full min-w-0 px-3 sm:px-8 py-3 flex items-center justify-between gap-2 sm:gap-6">
@@ -85,13 +85,6 @@ export default function Navbar() {
 
             <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <NotificationBell />
-              <Link
-                href="/user?tab=ContactUs"
-                prefetch={false}
-                className="liquid-glass-hit inline-flex items-center justify-center px-2.5 sm:px-3 py-2 rounded-xl border border-white/[0.14] bg-white/[0.06] text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white/90 hover:bg-white/12 hover:text-white transition-all active:scale-95 whitespace-nowrap"
-              >
-                Help
-              </Link>
               {bootstrapLoaded && !paid ? (
                 <Link
                   href="/intro"

@@ -39,7 +39,7 @@ const BADGES: Record<string, { icon: string; label: string; desc: string; check:
     check: (s) => !!s.hadPerfect10
   },
   quiz_master: {
-    icon: "🧠", label: "Quiz Master", desc: "Complete 50 quizzes",
+    icon: "🧠", label: "IQ-EARNERS Pro", desc: "Complete 50 quizzes",
     check: (s) => (s.totalQuizzes ?? 0) >= 50
   },
   tournament_winner: {

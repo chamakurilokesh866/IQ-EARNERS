@@ -13,8 +13,6 @@ import logoPng from "../prizes/icon.png"
 const SponsorForms = dynamic(() => import("../../components/SponsorForms"), { ssr: false })
 const TurnstileWidget = dynamic(() => import("../../components/TurnstileWidget"), { ssr: false })
 import { getBootstrapUrl } from "@/lib/bootstrapFetch"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
-
 const PaymentModal = dynamic(() => import("../../components/PaymentModal"), { ssr: false })
 const LoginModal = dynamic(() => import("../../components/LoginModal"), { ssr: false })
 const LegalModal = dynamic(() => import("../../components/LegalModal"), { ssr: false })
@@ -23,9 +21,10 @@ const ChallengeAcceptModal = dynamic(() => import("../../components/ChallengeAcc
 const AIIntroContent = dynamic(() => import("../../components/AIIntroContent"), { ssr: false })
 const CreatorBanner = dynamic(() => import("../../components/CreatorBanner"), { ssr: false })
 const UserManualBook = dynamic(() => import("../../components/UserManualBook"), { ssr: false })
+const PracticeQuizWidget = dynamic(() => import("../../components/PracticeQuizWidget"), { ssr: false })
 import { triggerHapticImpact } from "@/lib/haptics"
 import StickyIntroCTA from "../../components/StickyIntroCTA"
-import CookieBanner from "../../components/CookieBanner"
+import NeonParticles from "../../components/NeonParticles"
 
 const FEATURES = [
   {
@@ -77,7 +76,7 @@ function IntroJourneyStrip() {
       role="list"
       aria-label="How it works: pay, compete, win"
     >
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-0">
+      <div className="flex flex-row items-center justify-start sm:justify-center gap-3 sm:gap-0 overflow-x-auto sm:overflow-visible pb-6 scrollbar-hide snap-x">
         {INTRO_JOURNEY_STEPS.map((step, i) => (
           <Fragment key={step.title}>
             <motion.article
@@ -89,18 +88,18 @@ function IntroJourneyStrip() {
                 duration: 0.5,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className={`relative flex-1 sm:flex-none sm:min-w-[148px] max-w-md mx-auto sm:mx-0 rounded-2xl border backdrop-blur-sm px-4 py-4 sm:py-5 text-center ${cardBase}`}
+              className={`relative shrink-0 w-[158px] sm:w-auto sm:flex-none sm:min-w-[168px] max-w-md rounded-2xl border backdrop-blur-md px-4 py-5 sm:py-6 text-center snap-center ${cardBase}`}
             >
               <span
-                className="absolute top-2.5 left-2.5 text-[9px] font-black tabular-nums tracking-widest text-white/25"
+                className="absolute top-2 left-3 text-[8px] font-black tabular-nums tracking-widest text-white/25"
                 aria-hidden
               >
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <div className="text-3xl sm:text-[2rem] leading-none mb-2 select-none" aria-hidden>
+              <div className="text-3xl sm:text-[2.25rem] leading-none mb-2.5 select-none" aria-hidden>
                 {step.emoji}
               </div>
-              <h3 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.18em] text-primary leading-snug">
+              <h3 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-primary leading-snug">
                 {step.title}
               </h3>
               <p className={`text-[10px] mt-1.5 font-semibold leading-tight ${subColor}`}>{step.subtitle}</p>
@@ -108,7 +107,7 @@ function IntroJourneyStrip() {
 
             {i < INTRO_JOURNEY_STEPS.length - 1 ? (
               <motion.div
-                className="flex items-center justify-center shrink-0 py-1 sm:py-0 sm:px-1"
+                className="flex items-center justify-center shrink-0 px-1"
                 initial={{ opacity: 0, scale: 0.2 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{
@@ -126,7 +125,7 @@ function IntroJourneyStrip() {
                   transition={{ delay: (i === 0 ? T_A1 : T_A2) + 0.08, duration: 0.25 }}
                 >
                   <motion.span
-                    className="text-xl sm:text-2xl font-black leading-none block rotate-90 sm:rotate-0 origin-center"
+                    className="text-xl sm:text-2xl font-black leading-none block origin-center"
                     animate={{ x: [0, 9, 0] }}
                     transition={{
                       delay: (i === 0 ? T_A1 : T_A2) + 0.35,
@@ -171,6 +170,25 @@ const INTRO_FAQS = [
   { q: "How can I verify my rank?", a: "The leaderboard updates in real time. Use your transmission code or registered name to find your latest standing." },
 ] as const
 
+const ORG_API_CONTEXT = [
+  {
+    title: "For Organizations",
+    points: [
+      "Create a separate organization portal with owner/admin controls.",
+      "Manage members, quizzes, analytics, notifications, and audit logs.",
+      "Use your own branding and run internal quiz programs securely.",
+    ],
+  },
+  {
+    title: "For API Integrations",
+    points: [
+      "Generate organization-scoped API keys from org dashboard.",
+      "Integrate LMS/ERP/portals with secure auth and permissioned access.",
+      "Configure event-driven automation through webhook-ready architecture.",
+    ],
+  },
+] as const
+
 export default function IntroPage() {
   const { navigate } = useTransitionNavigate()
   const search = useSearchParams()
@@ -190,7 +208,6 @@ export default function IntroPage() {
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [sponsorModalView, setSponsorModalView] = useState<"turnstile" | "form" | "success">("turnstile")
   const [sponsorFormError, setSponsorFormError] = useState<string | null>(null)
-  const [cookieBlur, setCookieBlur] = useState(false)
   const didAutoOpenLoginRef = useRef(false)
   const didAutoOpenChallengeRef = useRef(false)
   
@@ -199,7 +216,22 @@ export default function IntroPage() {
   const fromParam = search.get("from")
   const loginParam = search.get("login")
   const usernameParam = search.get("username")
+  const openPayParam = search.get("openPay")
   const legalParam = search.get("legal") as "terms" | "privacy" | "rules" | "grievance" | "refund" | "disclaimer" | "cookie" | null
+
+  useEffect(() => {
+    if (openPayParam === "1" && mounted) {
+      setShowPay(true)
+      try {
+        const u = new URL(window.location.href)
+        u.searchParams.delete("openPay")
+        const q = u.searchParams.toString()
+        window.history.replaceState(null, "", u.pathname + (q ? `?${q}` : ""))
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [openPayParam, mounted])
 
   useEffect(() => {
     if (msg === "contact" && mounted) {
@@ -328,161 +360,198 @@ export default function IntroPage() {
 
   return (
     <>
-      <div className="intro-page-scroll relative w-full min-h-dvh flex flex-col items-center selection:bg-primary selection:text-white font-sans scroll-smooth bg-transparent text-white">
+      <div className="intro-page-scroll intro-premium-shell relative w-full min-h-dvh flex flex-col items-center overflow-x-hidden selection:bg-primary selection:text-white font-sans scroll-smooth bg-transparent text-white">
         {/* Local page-specific aurora enhancements — subtle overlays on top of global background */}
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <NeonParticles className="opacity-70" />
           <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
           <div className="absolute bottom-[-10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-accent/8 blur-[110px]" />
         </div>
 
-        <div className={`w-full relative z-10 transition-all duration-700 ${cookieBlur ? "blur-xl scale-[0.98] pointer-events-none" : "opacity-100"}`}>
+        <div className="w-full max-w-[100vw] relative z-10 transition-all duration-700 opacity-100">
 
           {/* ── 1. HERO SECTION ─────────────────────────────────── */}
-          <section className="w-full flex flex-col items-center pt-24 pb-16 px-6 text-center">
+          <section className="w-full flex flex-col items-center pt-16 sm:pt-24 lg:pt-40 pb-14 sm:pb-20 px-4 sm:px-6 text-center relative overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] sm:w-[800px] sm:h-[800px] bg-primary/5 blur-[110px] sm:blur-[150px] pointer-events-none" />
+            
             <motion.div
-              initial={{ opacity: 0, scale: 0.92, rotate: -3 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-              className="relative mb-10"
-            >
-              <div className="absolute -inset-8 rounded-[2rem] bg-gradient-to-tr from-primary/30 via-accent/20 to-primary/10 blur-3xl animate-pulse" />
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-[2rem] overflow-hidden border-2 border-primary/35 bg-black/50 backdrop-blur-xl shadow-[0_0_40px_rgba(124,58,237,0.25)] p-1">
-                <Image src={logoPng} alt="IQ Earners" width={112} height={112} sizes="112px" className="w-full h-full object-cover rounded-[1.8rem]" priority />
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-4xl"
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 w-full max-w-5xl"
             >
-              <span className="inline-block px-5 py-2 rounded-full bg-gradient-to-r from-primary/20 to-accent/15 border border-primary/30 text-[10px] font-black tracking-[0.32em] text-accent uppercase mb-6 shadow-[0_0_24px_rgba(20,184,166,0.15)]">
-                Premium Intellectual Arena
-              </span>
-              <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[0.9] mb-6">
-                LEVEL UP <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-primary to-accent">YOUR INTELLIGENCE</span>
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-white/5 border border-white/10 text-[8px] sm:text-[9px] font-black tracking-[0.3em] sm:tracking-[0.4em] text-cyan-400 uppercase mb-7 sm:mb-10 shadow-2xl backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                Global Skill Arena
+              </div>
+              
+              <h1 className="text-[2rem] sm:text-[4rem] lg:text-[7.5rem] font-black tracking-tight sm:tracking-tighter leading-[1.05] sm:leading-[1] mb-6 sm:mb-8 lg:mb-14 py-1 sm:py-2 drop-shadow-2xl">
+                SHARPEN YOUR <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-400 to-primary background-animate">IQ SCORE.</span>
               </h1>
-              <p className="max-w-xl mx-auto text-base sm:text-lg text-white/50 leading-relaxed font-medium mb-4">
-                Join India's most prestigious merit-based platform. Solve daily challenges, dominate national leaderboards, and earn recognition for your cognitive speed.
-              </p>
-              <p className="max-w-xl mx-auto text-[11px] sm:text-xs font-bold uppercase tracking-[0.28em] text-accent/90 mb-8">
-                Daily GK · Live tournaments · Merit prizes
+
+              <p className="max-w-2xl mx-auto text-sm sm:text-lg lg:text-[1.35rem] text-white/75 leading-relaxed font-semibold mb-9 sm:mb-16 px-1">
+                Compete in timed intellectual challenges, climb the global rankings, and unlock merit rewards.
               </p>
 
-              <IntroJourneyStrip />
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-14 w-full sm:w-auto">
                 <button
                   onClick={() => { void triggerHapticImpact("heavy"); setShowPay(true); }}
-                  className="group relative h-16 w-full sm:w-64 rounded-2xl font-black text-sm tracking-widest uppercase overflow-hidden transition-all hover:scale-[1.03] active:scale-[0.98] bg-gradient-to-r from-primary to-primary-focus text-white shadow-[0_12px_40px_rgba(124,58,237,0.35)] ring-2 ring-accent/40 ring-offset-2 ring-offset-[#06040f]"
+                  className="group relative h-12 sm:h-14 w-full sm:w-72 rounded-xl sm:rounded-2xl font-black text-[10px] tracking-[0.16em] sm:tracking-[0.2em] uppercase overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] bg-primary text-white shadow-[0_15px_40px_rgba(139,92,246,0.3)]"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <span className="relative z-10 drop-shadow-sm">Enroll Now — ₹{fee}</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                  <span className="relative z-10">Start Challenge</span>
                 </button>
                 <button
                   onClick={() => { void triggerHapticImpact("light"); setShowLogin(true); }}
-                  className="h-16 w-full sm:w-64 rounded-2xl bg-white/[0.04] border border-accent/25 text-white font-black text-sm tracking-widest uppercase hover:border-accent/50 hover:bg-accent/10 transition-all active:scale-95"
+                  className="h-12 sm:h-14 w-full sm:w-72 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] tracking-[0.16em] sm:tracking-[0.2em] uppercase hover:bg-white/10 transition-all hover:border-white/20 active:scale-95 backdrop-blur-xl"
                 >
-                  Sign In
+                  Member Login
                 </button>
+              </div>
+
+              <div className="w-full opacity-90">
+                <IntroJourneyStrip />
               </div>
             </motion.div>
           </section>
 
-          <div className="w-full max-w-4xl mx-auto px-6 mb-20">
-            <CreatorBanner />
-          </div>
-
           {/* ── 2. FEATURES GRID ────────────────────────────────── */}
-          <section className="w-full max-w-6xl mx-auto px-6 py-20 border-t border-white/5">
-            <div className="text-center mb-16">
-              <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.35em] text-primary/90 mb-4">
-                <span className="h-px w-8 bg-gradient-to-r from-transparent to-primary/60" aria-hidden />
-                Why players stay
-                <span className="h-px w-8 bg-gradient-to-l from-transparent to-primary/60" aria-hidden />
-              </span>
-              <h2 className="text-3xl font-black uppercase tracking-tighter sm:text-4xl">Platform Capabilities</h2>
-              <p className="text-white/40 text-sm mt-2 uppercase tracking-[0.2em]">Scale your potential with IQ Earners</p>
+          <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-24 lg:py-32 relative">
+            <div className="text-center mb-10 sm:mb-16 lg:mb-24">
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-6 block">Our Platform</span>
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight uppercase">Platform <span className="text-white/30 italic">Features</span></h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
               {FEATURES.map((f: { title: string; desc: string; icon: string; badge: string }, i: number) => (
                 <motion.div
                   key={f.title}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="group relative p-8 rounded-[2.5rem] bg-gradient-to-b from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden hover:border-primary/35 hover:shadow-[0_20px_50px_rgba(124,58,237,0.12)] transition-all duration-300"
+                  transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  className="ui-premium-card p-5 sm:p-8 lg:p-12 group transition-all duration-500"
                 >
-                  <div
-                    className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-60 group-hover:opacity-100 transition-opacity"
-                    aria-hidden
-                  />
-                  <div className="flex items-start justify-between gap-3 mb-5">
-                    <div className="text-4xl leading-none select-none" aria-hidden>{f.icon}</div>
-                    <span className="shrink-0 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-primary/15 text-primary border border-primary/25">
+                  <div className="flex items-start justify-between gap-3 mb-8">
+                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-500 border border-white/10">{f.icon}</div>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">
                       {f.badge}
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold mb-3 tracking-tight">{f.title}</h3>
-                  <p className="text-sm text-white/45 leading-relaxed font-medium">{f.desc}</p>
+                  <h3 className="text-xl font-bold mb-4 tracking-tight group-hover:text-primary transition-colors">{f.title}</h3>
+                  <p className="text-sm text-white/40 leading-relaxed font-medium">{f.desc}</p>
                 </motion.div>
               ))}
             </div>
           </section>
 
+          {/* ── PRACTICE QUIZ ──────────────────────────────── */}
+          <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-24 relative">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 blur-[120px] pointer-events-none" />
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="text-center mb-10">
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-4 block">Free Trial</span>
+                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight uppercase">Practice <span className="text-white/30 italic">Quiz</span></h2>
+                <p className="text-sm text-white/40 mt-3 max-w-lg mx-auto">Try our AI-powered quiz engine. 5 quick questions to warm up your brain — no sign-up needed.</p>
+              </div>
+              <PracticeQuizWidget onPayClick={() => { void triggerHapticImpact("heavy"); setShowPay(true); }} />
+            </motion.div>
+          </section>
+
           {/* ── 3. AI CONTENT ── */}
-          <div className="max-w-4xl mx-auto px-6 py-10">
+          <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 sm:p-8 lg:p-10">
+              <div className="text-center mb-8">
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-3 block">Public Overview</span>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight uppercase">
+                  Organizations &amp; API <span className="text-white/40 italic">Context</span>
+                </h2>
+                <p className="text-sm text-white/55 mt-3 max-w-3xl mx-auto">
+                  This section is publicly visible so institutions and partners can understand how organization portals and API integrations work before contacting us.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {ORG_API_CONTEXT.map((group) => (
+                  <div key={group.title} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <h3 className="text-base font-black uppercase tracking-wide text-primary mb-3">{group.title}</h3>
+                    <ul className="space-y-2">
+                      {group.points.map((point) => (
+                        <li key={point} className="text-sm text-white/70 leading-relaxed">• {point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setSponsorKind("university"); setShowSponsorModal(true) }}
+                  className="rounded-xl bg-primary text-white px-6 py-3 text-xs font-black uppercase tracking-[0.18em] hover:brightness-110 transition-all"
+                >
+                  Request Organization Access
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSponsorKind("collaboration"); setShowSponsorModal(true) }}
+                  className="rounded-xl border border-white/20 bg-white/5 text-white px-6 py-3 text-xs font-black uppercase tracking-[0.18em] hover:bg-white/10 transition-all"
+                >
+                  Contact for API Integration
+                </button>
+                <Link
+                  href="/integration-guide"
+                  className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 text-cyan-300 px-6 py-3 text-xs font-black uppercase tracking-[0.18em] hover:bg-cyan-400/20 transition-all text-center"
+                >
+                  View Integration Guide
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          {/* ── 3. AI CONTENT ── */}
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
             <AIIntroContent />
           </div>
 
           {/* ── 4. PARTNERSHIP HUB ────────────────── */}
-          <section className="w-full max-w-5xl mx-auto px-6 py-24 border-y border-white/5 bg-white/[0.01]">
-            <div className="text-center mb-16">
+          <section className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-24 mb-12 sm:mb-20 ui-premium-card">
+            <div className="text-center mb-12">
               <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">ECOSYSTEM HUB</span>
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-none uppercase">Business <br/><span className="text-white/40">Inquiry Hub</span></h2>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase">Business <span className="text-white/40 italic">Inquiry Hub</span></h2>
             </div>
-
             <div className="flex justify-center">
               <motion.div
-                whileHover={{ y: -10 }}
-                className="w-full max-w-2xl p-10 rounded-[3rem] bg-navy-950/60 border border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex flex-col items-center text-center shadow-[0_30px_60px_rgba(0,0,0,0.4)]"
+                whileHover={{ y: -5 }}
+                className="w-full max-w-xl p-5 sm:p-8 lg:p-14 rounded-3xl sm:rounded-[2.5rem] bg-white/[0.02] border border-white/10 hover:border-primary/50 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xl relative overflow-hidden"
                 onClick={() => { setSponsorKind("sponsor"); setShowSponsorModal(true) }}
               >
                 <div className="flex gap-4 mb-8">
-                  <div className="text-5xl group-hover:scale-110 transition-transform">🏆</div>
-                  <div className="text-5xl group-hover:scale-110 transition-transform delay-75">📢</div>
-                  <div className="text-5xl group-hover:scale-110 transition-transform delay-150">🎓</div>
+                  <div className="text-4xl group-hover:scale-110 transition-transform">🏆</div>
+                  <div className="text-4xl group-hover:scale-110 transition-transform delay-75">📢</div>
                 </div>
-                <h3 className="text-2xl font-black mb-4">PARTNERSHIP ENQUIRY</h3>
-                <p className="text-sm text-white/40 leading-relaxed max-w-md">One portal for all partnerships. Submit your proposal for sponsorship, product promotion, or institutional collaboration and our AI-enhanced logistics team will review it within 24 hours.</p>
-                
-                <div className="mt-10 flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-primary-focus text-white font-black uppercase tracking-widest shadow-lg shadow-primary/30 hover:brightness-110 transition-all">
+                <h3 className="text-xl font-black mb-4 uppercase tracking-tight">Partner Gateway</h3>
+                <p className="text-sm text-white/50 leading-relaxed max-w-md mb-8">Submit sponsorship or collaboration requests. Our team initiates contact within 24 hours.</p>
+                <div className="px-8 py-4 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/30 group-hover:brightness-110 transition-all">
                   Open Hub →
                 </div>
               </motion.div>
             </div>
-
-            <div className="mt-12 text-center">
-              <button 
-                onClick={() => setShowStatusModal(true)}
-                className="text-[10px] font-black text-white/30 uppercase tracking-widest hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto"
-              >
-                🔍 TRACK EXISTING INQUIRY
-              </button>
-            </div>
           </section>
 
-
           {/* ── 6. QUICK MANUAL & FAQ ─────────────────────────── */}
-          <section className="w-full max-w-5xl mx-auto px-6 py-24 bg-white/[0.01]">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
-              <div className="space-y-8">
+          <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-24 lg:py-32 mb-12 sm:mb-20 border-t border-white/5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-14 lg:gap-20">
+              <div className="space-y-8 sm:space-y-12">
                 <div>
-                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 block">OPERATIONAL PROTOCOL</span>
-                  <h2 className="text-4xl font-black leading-[0.9]">USER <br /> <span className="text-primary">MANUAL.</span></h2>
+                  <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black leading-[0.9] sm:leading-[0.85] tracking-tighter uppercase mb-3">QUICK <br /> <span className="text-primary italic">RULES.</span></h2>
+                  <p className="text-white/35 text-[10px] font-black uppercase tracking-[0.4em]">Protocol V2026.04</p>
                 </div>
                 <div className="space-y-4">
                   {[
@@ -491,79 +560,67 @@ export default function IntroPage() {
                     "Single device per session (Anti-Proxy).",
                     "Rewards processed within 48h."
                   ].map((rule, i) => (
-                    <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                      <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">{i+1}</div>
-                      <span className="text-xs text-white/60 font-medium">{rule}</span>
+                    <div key={i} className="flex items-center gap-3 sm:gap-5 p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary border border-primary/20">{i+1}</div>
+                      <span className="text-xs sm:text-sm text-white/70 font-semibold">{rule}</span>
                     </div>
                   ))}
                 </div>
-                <div className="pt-4 flex flex-col items-center">
-                  <div className="w-full max-w-xs">
+                <div className="pt-6">
+                  <div className="max-w-xs mx-auto lg:mx-0">
                     <UserManualBook />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-8">
-                <div>
-                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 block">KNOWLEDGE BASE</span>
-                  <h2 className="text-4xl font-black leading-[0.9]">COMMON <br /> <span className="text-primary">INQUIRIES.</span></h2>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Knowledge Base</span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {INTRO_FAQS.map((faq, i) => (
-                    <motion.div
-                      key={faq.q}
-                      initial={{ opacity: 0, y: 14 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, margin: "-40px" }}
-                      transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                      className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-5 hover:border-accent/35 transition-all duration-300"
-                    >
-                      <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden />
-                      <h4 className="text-xs font-black mb-2 flex items-start gap-2 text-white/95">
-                        <span className="mt-1.5 w-1 h-1 rounded-full bg-accent shrink-0" aria-hidden />
+                <div className="grid grid-cols-1 gap-4">
+                  {INTRO_FAQS.slice(0, 4).map((faq, i) => (
+                    <div key={i} className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-primary/30 transition-all group">
+                      <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                         {faq.q}
                       </h4>
-                      <p className="text-[11px] text-white/45 leading-relaxed font-medium pl-3">{faq.a}</p>
-                    </motion.div>
+                      <p className="text-xs text-white/40 leading-relaxed pl-4.5">{faq.a}</p>
+                    </div>
                   ))}
                 </div>
                 <button
                   onClick={() => setShowContact(true)}
-                  className="w-full py-5 rounded-2xl border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/[0.03] transition-all flex items-center justify-center gap-3"
+                  className="w-full py-6 rounded-2xl border border-primary/20 bg-primary/5 text-[11px] font-black uppercase tracking-[0.4em] hover:bg-primary/10 transition-all text-primary"
                 >
-                  📡 Connect with Help Desk
+                  📡 Get Help
                 </button>
               </div>
             </div>
           </section>
 
           {/* ── 7. FOOTER ─────────────────────────────────────── */}
-          <footer className="w-full py-32 px-6 border-t border-white/5 text-center">
-            <div className="mb-10 opacity-20 filter grayscale">
-              <Image src={logoPng} alt="IQ Earners" width={40} height={40} className="mx-auto" />
+          <footer className="w-full py-14 sm:py-24 lg:py-40 px-4 sm:px-6 border-t border-white/5 text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-primary/8 blur-[140px] -z-10" />
+            <div className="mb-12 opacity-40">
+              <Image src={logoPng} alt="IQ Earners" width={48} height={48} className="mx-auto grayscale hover:grayscale-0 transition-all duration-500" />
             </div>
-            <p className="text-[10px] text-white/20 font-black tracking-[0.5em] uppercase mb-6">INTELLECTUAL ARENA • INDIA</p>
-            <div className="flex flex-wrap justify-center gap-8 text-[10px] font-black tracking-widest text-white/30 uppercase">
+            <p className="text-[11px] text-white/30 font-black tracking-[0.6em] uppercase mb-10">IQ Earners Team</p>
+            <div className="flex flex-wrap justify-center gap-6 sm:gap-12 text-[10px] sm:text-[11px] font-black tracking-widest text-white/50 uppercase mb-12 sm:mb-20">
               <span className="hover:text-primary cursor-pointer transition-colors" onClick={() => setLegalDoc("terms")}>Terms</span>
               <span className="hover:text-primary cursor-pointer transition-colors" onClick={() => setLegalDoc("privacy")}>Privacy</span>
               <span className="hover:text-primary cursor-pointer transition-colors" onClick={() => setLegalDoc("rules")}>Rules</span>
             </div>
-            <p className="mt-16 text-[9px] text-white/5 font-medium tracking-tight">© 2026 IQ EARNERS · PARENT COMPANY {PARENT_COMPANY_NAME.toUpperCase()}. ALL ASSETS SECURED & VERIFIED.</p>
+            <p className="text-[10px] text-white/10 font-medium tracking-tight">© 2026 IQ EARNERS · SECURED & VERIFIED ECOSYSTEM.</p>
           </footer>
         </div>
 
-        {msg === "auth-required" && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] w-[90%] max-w-sm p-5 rounded-2xl bg-primary text-black text-[10px] font-black uppercase text-center shadow-2xl animate-slide-up tracking-widest">
-            Identity Required: Please Sign In to Access Arena
-          </div>
-        )}
         {msg === "session-ended" && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] w-[90%] max-w-sm p-5 rounded-2xl bg-amber-500 text-black text-[10px] font-black uppercase text-center shadow-2xl animate-slide-up tracking-widest">
-            Session ended: signed in elsewhere, timed out, or idle. Please sign in again.
+          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[150] w-[90%] max-w-sm p-6 rounded-2xl bg-amber-500 text-black text-[11px] font-black uppercase text-center shadow-3xl animate-slide-up tracking-widest border-2 border-black/10">
+            Session Terminated: Access Expired
           </div>
         )}
-
       </div>
 
       {showPay && (
@@ -739,7 +796,6 @@ export default function IntroPage() {
         />
       )}
 
-      <CookieBanner onVisibleChange={setCookieBlur} />
       <StickyIntroCTA fee={fee} onParticipate={() => { void triggerHapticImpact("heavy"); setShowPay(true); }} />
     </>
   )

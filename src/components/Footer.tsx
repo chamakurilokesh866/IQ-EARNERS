@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import logoPng from "../app/prizes/icon.png"
 import FooterBanner from "./FooterBanner"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import ParentCompanyMark from "./ParentCompanyMark"
 
 export default function Footer() {
   return (
@@ -21,8 +21,9 @@ export default function Footer() {
           <span className="text-xs sm:text-sm text-white/50" aria-hidden>
             ·
           </span>
-          <span className="text-xs sm:text-sm uppercase tracking-wider text-white/55">
-            Parent company: {PARENT_COMPANY_NAME}
+          <span className="text-xs sm:text-sm text-white/55 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
+            <span className="uppercase tracking-wider text-white/45">Parent company:</span>
+            <ParentCompanyMark className="text-sm sm:text-base" />
           </span>
           <Link href="/intro?msg=contact" className="hover:text-primary transition-colors !text-white/60">
             Contact Us
@@ -59,7 +60,9 @@ export default function Footer() {
           </div>
 
           <p className="max-w-2xl text-center text-[9px] sm:text-[10px] leading-relaxed px-4 uppercase tracking-wider font-medium text-white/50">
-            IQ EARNERS IS A SKILL-BASED KNOWLEDGE PLATFORM (PARENT COMPANY: {PARENT_COMPANY_NAME.toUpperCase()}) OPERATING UNDER IT ACT 2000, DPDP 2023, AND CONSUMER PROTECTION ACT 2019. ALL TRANSACTIONS ARE SECURED VIA RBI MANDATED GATEWAYS.
+            IQ EARNERS IS A SKILL-BASED KNOWLEDGE PLATFORM (PARENT COMPANY:{" "}
+            <ParentCompanyMark variant="legalStamp" className="text-[9px] sm:text-[10px]" />) OPERATING UNDER IT ACT 2000,
+            DPDP 2023, AND CONSUMER PROTECTION ACT 2019. ALL TRANSACTIONS ARE SECURED VIA RBI MANDATED GATEWAYS.
           </p>
 
           <div className="text-[9px] uppercase tracking-[0.3em] mt-4 font-bold text-white/35">

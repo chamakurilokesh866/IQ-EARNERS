@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { getBootstrapUrl } from "@/lib/bootstrapFetch"
 
 export function usePaidStatus() {
   const [paid, setPaid] = useState<boolean | null>(null)
@@ -8,24 +9,11 @@ export function usePaidStatus() {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      fetch("/api/user/profile", { cache: "no-store", credentials: "include" }).then((r) => r.json()).catch(() => ({ data: null })),
-      fetch("/api/user/payments", { cache: "no-store", credentials: "include" }).then((r) => r.json()).catch(() => ({ data: [] }))
-    ])
-      .then(([prof, pays]) => {
+    fetch(getBootstrapUrl(), { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
         if (cancelled) return
-        const uname = prof?.data?.username
-        const arr = Array.isArray(pays?.data) ? pays.data : []
-        const metaName = (p: { meta?: Record<string, unknown> }) =>
-          String((p?.meta?.username ?? p?.meta?.name ?? p?.meta?.customerName ?? "")).toLowerCase()
-        const ok = arr.some((p: { status?: string; type?: string; meta?: Record<string, unknown> }) =>
-          p.status === "success" && p.type === "tournament" && uname && metaName(p) === uname.toLowerCase()
-        )
-        let localPaid = false
-        try {
-          localPaid = typeof window !== "undefined" && (document.cookie.includes("paid=1") || localStorage?.getItem("paid") === "1")
-        } catch {}
-        setPaid(ok || localPaid)
+        setPaid(Boolean(j?.data?.paid))
       })
       .catch(() => {
         if (!cancelled) setPaid(false)
@@ -33,7 +21,9 @@ export function usePaidStatus() {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { paid: paid ?? false, loading }

@@ -1,0 +1,32 @@
+{
+  "name": "IQ Admin Console",
+  "short_name": "IQ Admin",
+  "description": "Dedicated admin app for IQ Earners operations dashboard.",
+  "start_url": "/more/admin-dashboard",
+  "scope": "/more/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "categories": ["business", "productivity", "education"],
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open admin dashboard",
+      "url": "/more/admin-dashboard",
+      "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Payments",
+      "short_name": "Payments",
+      "description": "Review pending payments",
+      "url": "/more/admin-dashboard?tab=Payments",
+      "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

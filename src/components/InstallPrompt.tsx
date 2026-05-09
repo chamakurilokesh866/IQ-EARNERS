@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { IQ_DEFERRED_INSTALL_EVENT, shouldForwardInstallPromptToAdmin } from "@/lib/adminPwaInstall"
 
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState<any>(null)
@@ -8,6 +9,12 @@ export default function InstallPrompt() {
   useEffect(() => {
     const key = "install_prompt_dismissed"
     const onBeforeInstallPrompt = (e: any) => {
+      const path = typeof window !== "undefined" ? window.location.pathname : ""
+      if (shouldForwardInstallPromptToAdmin(path)) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent(IQ_DEFERRED_INSTALL_EVENT, { detail: e }))
+        return
+      }
       if (typeof window !== "undefined" && window.localStorage.getItem(key)) return
       e.preventDefault()
       setDeferred(e)

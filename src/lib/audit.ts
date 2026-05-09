@@ -4,6 +4,9 @@ import path from "path"
 const LOG_DIR = path.join(process.cwd(), "src", "logs")
 const KEEP_DAYS = Number(process.env.AUDIT_LOG_KEEP_DAYS ?? 7)
 
+let lastPruneMs = 0
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000
+
 async function ensureDir() {
   await fs.mkdir(LOG_DIR, { recursive: true })
 }
@@ -26,7 +29,11 @@ async function pruneOld() {
 
 export async function audit(req: Request, action: string, meta: Record<string, any> = {}) {
   await ensureDir()
-  await pruneOld()
+  const now = Date.now()
+  if (now - lastPruneMs >= PRUNE_INTERVAL_MS) {
+    lastPruneMs = now
+    await pruneOld().catch(() => {})
+  }
   const d = new Date()
   const name = `audit-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.log`
   const file = path.join(LOG_DIR, name)

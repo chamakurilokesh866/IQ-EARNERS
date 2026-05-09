@@ -29,6 +29,7 @@ import SkeletonLoader from '../components/SkeletonLoader'
 import MainContentWrapper from '../components/MainContentWrapper'
 import MobileBottomNav from '../components/MobileBottomNav'
 import LiquidGlassPointer from '../components/LiquidGlassPointer'
+import CookieBanner from '../components/CookieBanner'
 
 const NetworkStatus = dynamic(() => import('../components/NetworkStatus'), { ssr: false })
 const InstallPrompt = dynamic(() => import('../components/InstallPrompt'), { ssr: false })
@@ -40,6 +41,7 @@ const SocialMediaFloat = dynamic(() => import('../components/SocialMediaFloat'),
 const ParticipantsOverlay = dynamic(() => import('../components/ParticipantsOverlay'), { ssr: false })
 const VerticalAdSidebars = dynamic(() => import('../components/VerticalAdSidebars'), { ssr: false })
 const SidebarGate = dynamic(() => import('../components/SidebarGate'), { ssr: false })
+const FloatingActions = dynamic(() => import('../components/FloatingActions'), { ssr: false })
 /* NotebookBackground removed: returns null (no-op), saves a client component mount */
 const InspectGuard = dynamic(() => import('../components/InspectGuard'), { ssr: false })
 const InspectBlockedGate = dynamic(() => import('../components/InspectBlockedGate'), { ssr: false })
@@ -51,7 +53,7 @@ const syne = Syne({ subsets: ['latin'], weight: ['400', '500', '600', '700', '80
 const pacifico = Pacifico({ subsets: ['latin'], weight: ['400'], variable: '--font-pacifico', display: 'swap', preload: false })
 
 
-import { SITE_URL, SITE_NAME, PARENT_COMPANY_NAME, SEO_KEYWORDS, DEFAULT_OG_IMAGE_URL, DEFAULT_DESCRIPTION, SITE_TAGLINE } from '@/lib/seo'
+import { SITE_URL, SITE_NAME, PARENT_COMPANY_NAME, SEO_KEYWORDS, DEFAULT_DESCRIPTION, SITE_TAGLINE } from '@/lib/seo'
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? SITE_URL),
@@ -69,14 +71,9 @@ export const metadata = {
   classification: "Online Quiz Platform",
   referrer: "origin-when-cross-origin",
   icons: {
-    icon: [
-      { url: '/favicon-192.png', type: 'image/png', sizes: '192x192' },
-      { url: '/favicon-512.png', type: 'image/png', sizes: '512x512' }
-    ],
-    shortcut: '/favicon-192.png',
-    apple: [
-      { url: '/favicon-192.png', sizes: '192x192', type: 'image/png' }
-    ]
+    icon: [{ url: '/logo.svg', type: 'image/svg+xml', sizes: 'any' }],
+    shortcut: '/logo.svg',
+    apple: [{ url: '/logo.svg', sizes: '180x180', type: 'image/svg+xml' }],
   },
   appleWebApp: {
     capable: true,
@@ -93,14 +90,6 @@ export const metadata = {
     url: SITE_URL,
     title: `${SITE_NAME} | Online Quiz India – Win Real Prizes`,
     description: DEFAULT_DESCRIPTION,
-    images: [
-      {
-        url: DEFAULT_OG_IMAGE_URL,
-        width: 512,
-        height: 512,
-        alt: `${SITE_NAME} – ${SITE_TAGLINE}`,
-      }
-    ],
     locale: 'en_IN',
     countryName: 'India',
   },
@@ -108,7 +97,6 @@ export const metadata = {
     card: 'summary_large_image',
     title: `${SITE_NAME} | Online Quiz India – Daily Quizzes & Prizes`,
     description: DEFAULT_DESCRIPTION,
-    images: [DEFAULT_OG_IMAGE_URL],
     creator: '@iqearners',
     site: '@iqearners',
   },
@@ -186,14 +174,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* CSP is set via HTTP headers in next.config.mjs — avoid duplicate meta CSP */}
         <meta httpEquiv="Permissions-Policy" content="public-key-credentials=(self), xr-spatial-tracking=()" />
         <link rel="dns-prefetch" href="https://api.cashfree.com" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
         <link rel="preconnect" href="https://sdk.cashfree.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <Script src="https://sdk.cashfree.com/js/v3/cashfree.js" strategy="lazyOnload" />
         <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="lazyOnload" />
-        <Script
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4354698332033727"
-          crossOrigin="anonymous"
-          strategy="lazyOnload"
-        />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4354698332033727" crossOrigin="anonymous"></script>
         <link rel="preconnect" href="https://challenges.cloudflare.com" crossOrigin="anonymous" />
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -216,9 +204,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             __html: `
 (function(){
   try {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.documentElement.style.colorScheme = 'dark';
-    localStorage.setItem('iq_theme', 'dark');
+    var stored = localStorage.getItem('iq_theme');
+    var next = stored === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.style.colorScheme = next;
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.style.colorScheme = 'dark';
@@ -258,7 +247,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         }} />
 
       </head>
-      <body className={`${poppins.variable} ${playfair.variable} ${syne.variable} ${pacifico.variable} ${poppins.className}`} style={{ minHeight: '100vh' }}>
+      <body className={`ui-refresh-v3 ${poppins.variable} ${playfair.variable} ${syne.variable} ${pacifico.variable} ${poppins.className} bg-[#020205] text-[#e2e8f0] antialiased`} style={{ minHeight: '100vh' }}>
         <LiquidGlassPointer />
         <ThemeProvider>
         <BootstrapProvider>
@@ -298,6 +287,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                       <ParticipantsOverlay />
                       <SocialMediaFloat />
                       <ReportButton />
+                      <CookieBanner />
+                      <FloatingActions />
                       <CapacitorBridge />
                     </>
                   </ToastProvider>

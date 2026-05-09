@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/rateLimit"
 import { validateOrigin } from "@/lib/auth"
 import crypto from "crypto"
+import { cookieOptions } from "@/lib/cookieOptions"
+import { getAdminRoleFromEnv } from "@/lib/auth"
+import { isAdminTotpEnabled, getAdminTotpSecret, verifyAdminTotpToken } from "@/lib/adminTotp"
 
 export async function POST(req: Request) {
   // Rate limit brute-force attacks
@@ -13,27 +16,39 @@ export async function POST(req: Request) {
   if (originCheck === false) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
+  const username = String(body?.username ?? "").trim()
   const password = String(body?.password ?? "").trim()
+  const code = String(body?.code ?? "").trim().replace(/\D/g, "").slice(0, 6)
+  const envUser = (process.env.ADMIN_USERNAME ?? "").trim()
   const envPass = (process.env.ADMIN_PASSWORD ?? "").trim()
-  if (!envPass) {
-    return NextResponse.json({ ok: false, error: "ADMIN_PASSWORD not set" }, { status: 500 })
+  if (!envUser || !envPass) {
+    return NextResponse.json({ ok: false, error: "Admin is not configured" }, { status: 500 })
+  }
+  if (!isAdminTotpEnabled()) {
+    return NextResponse.json({ ok: false, error: "ADMIN_TOTP_SECRET not configured" }, { status: 500 })
   }
   // Timing-safe comparison to prevent timing attacks
   const passBuffer = Buffer.from(password)
   const envBuffer = Buffer.from(envPass)
   const lengthMatch = passBuffer.length === envBuffer.length
   const safeTarget = lengthMatch ? envBuffer : passBuffer
-  if (!lengthMatch || !crypto.timingSafeEqual(passBuffer, safeTarget)) {
+  const userOk = username.toLowerCase() === envUser.toLowerCase()
+  if (!userOk || !lengthMatch || !crypto.timingSafeEqual(passBuffer, safeTarget)) {
     return NextResponse.json({ ok: false }, { status: 401 })
   }
-  const res = NextResponse.json({ ok: true })
-  res.cookies.set("role", "admin", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    domain: process.env.NODE_ENV === "production" ? ".iqearners.online" : undefined,
-    maxAge: 3600 * 12 // 12 hours session
-  })
+
+  if (code.length !== 6) {
+    return NextResponse.json({ ok: false, error: "Enter 6-digit authenticator code" }, { status: 400 })
+  }
+  const secret = getAdminTotpSecret()
+  if (!verifyAdminTotpToken(code, secret)) {
+    return NextResponse.json({ ok: false, error: "Invalid authenticator code" }, { status: 401 })
+  }
+
+  const slug = process.env.ADMIN_DASHBOARD_SLUG?.trim() || "admin"
+  const res = NextResponse.json({ ok: true, redirectTo: `/a/${slug}` })
+  res.cookies.set("role", "admin", cookieOptions({ maxAge: 60 * 60 * 24 }))
+  res.cookies.set("admin_role", getAdminRoleFromEnv(), cookieOptions({ maxAge: 60 * 60 * 24 }))
+  res.cookies.set("admin_auth_at", String(Date.now()), cookieOptions({ maxAge: 60 * 60 * 24 }))
   return res
 }

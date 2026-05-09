@@ -1,5 +1,13 @@
 import type { Metadata } from "next"
-import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE_URL, DESCRIPTIONS, PAGE_KEYWORDS } from "@/lib/seo"
+import {
+  SITE_URL,
+  SITE_NAME,
+  DEFAULT_OG_IMAGE_URL,
+  OG_IMAGE_WIDTH,
+  OG_IMAGE_HEIGHT,
+  DESCRIPTIONS,
+  PAGE_KEYWORDS,
+} from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "My Quiz Dashboard | Daily Quiz, Leaderboard & Tournaments",
@@ -11,7 +19,7 @@ export const metadata: Metadata = {
     description: DESCRIPTIONS.home,
     url: `${SITE_URL}/home`,
     siteName: SITE_NAME,
-    images: [{ url: DEFAULT_OG_IMAGE_URL, width: 512, height: 512, alt: "IQ Earners Dashboard" }],
+    images: [{ url: DEFAULT_OG_IMAGE_URL, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "IQ Earners Dashboard" }],
     locale: "en_IN",
     type: "website",
   },

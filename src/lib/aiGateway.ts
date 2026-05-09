@@ -6,15 +6,18 @@
  * Quiz AI (NVIDIA_*):
  * - NVIDIA_API_KEY: Required for Quiz Generator, tournaments, etc.
  * - NVIDIA_MODEL: Optional. Default: nvidia/nemotron-3-nano-30b-a3b
+ * - NVIDIA_FALLBACK_MODELS: Optional comma-separated model list for fallback attempts
  * - NVIDIA_API_BASE: Optional. Default: https://integrate.api.nvidia.com/v1
  *
  * Mock Exam AI (MOCK_EXAM_AI_*) – separate tokens from Quiz AI:
  * - MOCK_EXAM_AI_API_KEY: Required for Mock Exam generate & PDF extraction.
  * - MOCK_EXAM_AI_MODEL: Optional. Default: NVIDIA_MODEL or nemotron
+ * - MOCK_EXAM_AI_FALLBACK_MODELS: Optional comma-separated fallback list
  * - MOCK_EXAM_AI_API_BASE: Optional. Default: NVIDIA_API_BASE or NVIDIA default
  * Admin AI Assistant (ADMIN_AI_*) – separate tokens from Quiz AI and Mock Exam AI:
  * - ADMIN_AI_API_KEY: Required for Admin AI Assistant chat.
  * - ADMIN_AI_MODEL: Optional. Default: NVIDIA_MODEL or nemotron
+ * - ADMIN_AI_FALLBACK_MODELS: Optional comma-separated fallback list
  * - ADMIN_AI_API_BASE: Optional. Default: NVIDIA_API_BASE or NVIDIA default
  *
  * Where NVIDIA is used (server routes):
@@ -52,6 +55,18 @@ export type ChatCompletionResult =
   | { ok: false; error: string; status: number }
 
 type ChatLabels = { empty: string; quota: string; auth: string; generic: string }
+
+function parseModelCandidates(primary: string, fallbackRaw?: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const model of [primary, ...(fallbackRaw ?? "").split(",")]) {
+    const trimmed = String(model || "").trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
 
 async function chatCompletionOnce(
   client: OpenAI,
@@ -94,6 +109,25 @@ async function chatCompletionWithRetries(
     if (!isRetriableFailure(last) || i === RETRY_ATTEMPTS - 1) return last
     const base = 400 * 2 ** i
     await sleep(base + Math.floor(Math.random() * 200))
+  }
+  return last
+}
+
+async function chatCompletionWithModelFallback(
+  client: OpenAI,
+  modelCandidates: string[],
+  messages: ChatMessage[],
+  options: ChatCompletionOptions,
+  defaultMaxTokens: number,
+  labels: ChatLabels
+): Promise<ChatCompletionResult> {
+  let last: ChatCompletionResult = { ok: false, error: labels.generic, status: 502 }
+  for (const model of modelCandidates) {
+    const body = buildChatBody(model, messages, options, defaultMaxTokens)
+    last = await chatCompletionWithRetries(client, body, labels)
+    if (last.ok) return last
+    // If account-level auth fails, trying another model will not help.
+    if (last.error === labels.auth) return last
   }
   return last
 }
@@ -171,8 +205,8 @@ export async function chatCompletion(
     }
   }
   const model = process.env.NVIDIA_MODEL?.trim() || DEFAULT_NVIDIA_MODEL
-  const body = buildChatBody(model, messages, options, 8192)
-  return chatCompletionWithRetries(client, body, {
+  const modelCandidates = parseModelCandidates(model, process.env.NVIDIA_FALLBACK_MODELS)
+  return chatCompletionWithModelFallback(client, modelCandidates, messages, options, 8192, {
     empty: "Empty response from AI",
     quota: "API quota exceeded. Try again later.",
     auth: "Invalid API key. Check NVIDIA_API_KEY in .env.local.",
@@ -194,8 +228,8 @@ export async function chatCompletionForMockExam(
   }
   const model =
     process.env.MOCK_EXAM_AI_MODEL?.trim() || process.env.NVIDIA_MODEL?.trim() || DEFAULT_NVIDIA_MODEL
-  const body = buildChatBody(model, messages, options, 8192)
-  return chatCompletionWithRetries(client, body, {
+  const modelCandidates = parseModelCandidates(model, process.env.MOCK_EXAM_AI_FALLBACK_MODELS)
+  return chatCompletionWithModelFallback(client, modelCandidates, messages, options, 8192, {
     empty: "Empty response from Mock Exam AI",
     quota: "Mock Exam AI quota exceeded. Try again later.",
     auth: "Invalid API key. Check MOCK_EXAM_AI_API_KEY in .env.local.",
@@ -217,8 +251,8 @@ export async function chatCompletionForAdminAI(
     }
   }
   const model = process.env.ADMIN_AI_MODEL?.trim() || process.env.NVIDIA_MODEL?.trim() || DEFAULT_NVIDIA_MODEL
-  const body = buildChatBody(model, messages, options, 4096)
-  return chatCompletionWithRetries(client, body, {
+  const modelCandidates = parseModelCandidates(model, process.env.ADMIN_AI_FALLBACK_MODELS)
+  return chatCompletionWithModelFallback(client, modelCandidates, messages, options, 4096, {
     empty: "Empty response from Admin AI",
     quota: "Admin AI quota exceeded. Try again later.",
     auth: "Invalid API key. Check ADMIN_AI_API_KEY in .env.local.",

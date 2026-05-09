@@ -15,8 +15,24 @@ type Step = "username" | "password" | "otp" | "blocked" | "forgot"
 type ForgotStep = "username" | "otp" | "newpassword"
 type RedirectTarget = "admin" | "user"
 
-const REDIRECT_DELAY_MS = 400
-const BOOTSTRAP_PREFETCH_MS = 600
+const REDIRECT_DELAY_MS = 80
+const BOOTSTRAP_PREFETCH_MS = 220
+
+/* ── Recovery password rules (match /api/forgot-password/reset) ── */
+function recoveryPasswordValid(pw: string): boolean {
+  if (pw.length < 6) return false
+  if (!/[A-Z]/.test(pw)) return false
+  if (!/\d/.test(pw)) return false
+  if (!/[._\-@!?#$%&*]/.test(pw)) return false
+  return true
+}
+
+function forgotOtpLooksComplete(raw: string): boolean {
+  const u = raw.trim().toUpperCase()
+  if (/^IQPS-\d{3}$/.test(u)) return true
+  if (/^\d{3}$/.test(u)) return true
+  return false
+}
 
 /* ── Password strength helper ── */
 function getStrength(pw: string): { label: string; cls: string; pct: number } {
@@ -39,6 +55,8 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
   const { showToast } = useToast()
   const [username, setUsername] = useState(initialUsername ?? "")
   const [password, setPassword] = useState("")
+  const [adminFastCode, setAdminFastCode] = useState("")
+  const [showAdminQuickField, setShowAdminQuickField] = useState(false)
   const [otp, setOtp] = useState("")
   const [step, setStep] = useState<Step>("username")
   const [error, setError] = useState<string | null>(null)
@@ -76,16 +94,34 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
   const [forgotUseEmail, setForgotUseEmail] = useState(true)
   const [forgotUsername, setForgotUsername] = useState("")
   const [forgotUsernameHint, setForgotUsernameHint] = useState("")
+  const [forgotEmailMasked, setForgotEmailMasked] = useState("")
   const [forgotOtpInput, setForgotOtpInput] = useState("")
   const [resetToken, setResetToken] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState("")
   const [confirmNewPassword, setConfirmNewPassword] = useState("")
   const [forgotSuccess, setForgotSuccess] = useState(false)
   const turnstileRef = useRef<TurnstileWidgetRef>(null)
+  const adminOtpTurnstileRef = useRef<TurnstileWidgetRef>(null)
   const forgotTurnstileRef = useRef<TurnstileWidgetRef>(null)
+  const forgotTurnstileResendRef = useRef<TurnstileWidgetRef>(null)
+  const [forgotResendSecs, setForgotResendSecs] = useState(0)
+  const [adminOtpResendSecs, setAdminOtpResendSecs] = useState(0)
+  const [adminOtpDigits, setAdminOtpDigits] = useState<6>(6)
   useEffect(() => {
     if (initialUsername) setUsername(initialUsername)
   }, [initialUsername])
+
+  useEffect(() => {
+    if (forgotResendSecs <= 0) return
+    const t = setInterval(() => setForgotResendSecs((s) => (s <= 1 ? 0 : s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [forgotResendSecs])
+
+  useEffect(() => {
+    if (adminOtpResendSecs <= 0) return
+    const t = setInterval(() => setAdminOtpResendSecs((s) => (s <= 1 ? 0 : s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [adminOtpResendSecs])
 
   useEffect(() => {
     if (step === "blocked" || blockedPayStep !== "main") {
@@ -135,6 +171,30 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
     setLoading(true)
     setError(null)
     try {
+      const fastCode = adminFastCode.replace(/\D/g, "").slice(0, 6)
+      // Fast path: if a 6-digit authenticator code is provided, try one-step admin login first.
+      if (fastCode.length === 6 && password.trim()) {
+        const fastRes = await fetch("/api/admin/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            username: username.trim(),
+            password: password.trim(),
+            code: fastCode,
+          }),
+        })
+        const fastJson = await fastRes.json().catch(() => ({}))
+        if (fastRes.ok && fastJson?.ok) {
+          setRedirectTarget("admin")
+          setRedirectTo(fastJson.redirectTo || "/a/admin")
+          setRedirectPhase("loading")
+          setRedirecting(true)
+          setError(null)
+          return
+        }
+      }
+
       const res = await fetch("/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,6 +220,7 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
       if (json.step === "otp") {
         setStep("otp")
         setOtp("")
+        setAdminOtpResendSecs(0)
         setLoading(false)
         return
       }
@@ -224,6 +285,8 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
       if (json.step === "otp") {
         setStep("otp")
         setOtp("")
+        setAdminOtpResendSecs(0)
+        setAdminOtpDigits(6)
       }
     } catch (e: any) {
       setError(e.message ?? "Invalid password")
@@ -235,9 +298,9 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
 
   const submitOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const code = otp.replace(/\D/g, "").slice(0, 4)
-    if (code.length !== 4) {
-      setError("Enter 4 digits")
+    const code = otp.replace(/\D/g, "").slice(0, adminOtpDigits)
+    if (code.length !== adminOtpDigits) {
+      setError("Enter all 6 digits from your authenticator app")
       return
     }
     setLoading(true)
@@ -280,6 +343,8 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
         setForgotStep("username")
         setForgotOtpInput("")
         setForgotUsernameHint("")
+        setForgotEmailMasked("")
+        setForgotResendSecs(0)
       } else if (forgotStep === "newpassword") {
         setForgotStep("otp")
         setResetToken(null)
@@ -290,6 +355,7 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
         setForgotStep("username")
         setForgotUsername("")
         setForgotUsernameHint("")
+        setForgotEmailMasked("")
         setForgotOtpInput("")
         setResetToken(null)
         setForgotSuccess(false)
@@ -302,6 +368,7 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
     } else if (step === "otp") {
       setStep("password")
       setOtp("")
+      setAdminOtpDigits(6)
       setError(null)
     } else if (step === "blocked") {
       if (blockedPayStep === "upload") {
@@ -341,9 +408,12 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
       })
       const j = await res.json().catch(() => ({}))
       if (!j?.ok) throw new Error(j?.error ?? "Failed to send code")
-      setForgotUsernameHint(j.usernameHint ?? "")
+      setForgotUsernameHint(typeof j.usernameHint === "string" ? j.usernameHint : "")
+      setForgotEmailMasked(typeof j.emailMasked === "string" ? j.emailMasked : "")
       setForgotOtpInput("")
+      setForgotResendSecs(0)
       setForgotStep("otp")
+      forgotTurnstileResendRef.current?.reset()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed")
       forgotTurnstileRef.current?.reset()
@@ -352,9 +422,82 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
     }
   }
 
+  const resendForgotCode = async () => {
+    if (forgotResendSecs > 0 || loading || !forgotUsername.trim()) return
+    const turnstileToken = forgotTurnstileResendRef.current?.getToken() ?? null
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Complete the check below to resend the email.")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const body = forgotUseEmail
+        ? { email: forgotUsername.trim(), turnstileToken: turnstileToken ?? undefined }
+        : { username: forgotUsername.trim(), turnstileToken: turnstileToken ?? undefined }
+      const res = await fetch("/api/forgot-password/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include"
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!j?.ok) throw new Error(j?.error ?? "Could not resend code")
+      setForgotUsernameHint(typeof j.usernameHint === "string" ? j.usernameHint : "")
+      setForgotEmailMasked(typeof j.emailMasked === "string" ? j.emailMasked : "")
+      setForgotOtpInput("")
+      setForgotResendSecs(45)
+      showToast("Verification code sent again.")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not resend")
+      forgotTurnstileResendRef.current?.reset()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendAdminOtpSession = async () => {
+    if (adminOtpResendSecs > 0 || loading || !username.trim() || !password.trim()) return
+    const turnstileToken = adminOtpTurnstileRef.current?.getToken() ?? null
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Complete the check below to refresh your session.")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password: password.trim(), turnstileToken: turnstileToken ?? undefined }),
+        credentials: "include"
+      })
+      const text = await res.text()
+      const json = text ? (() => { try { return JSON.parse(text) } catch { return {} } })() : {}
+      if (!res.ok && !json?.error) throw new Error("Server error. Please try again.")
+      if (!json.ok) throw new Error(json?.error ?? "Could not refresh session")
+      if (json.step === "otp") {
+        setOtp("")
+        setAdminOtpDigits(6)
+        setAdminOtpResendSecs(45)
+        showToast("Session refreshed. Use your authenticator code again.")
+      } else {
+        throw new Error("Unexpected response — try closing and signing in from the password step.")
+      }
+    } catch (e: any) {
+      setError(e.message ?? "Could not refresh session")
+      adminOtpTurnstileRef.current?.reset()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const submitForgotOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!forgotOtpInput.trim()) return
+    if (!forgotOtpLooksComplete(forgotOtpInput)) {
+      setError("Enter the 3-digit code (e.g. IQPS-482 or 482).")
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -381,6 +524,10 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
   const submitNewPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!resetToken || !newPassword || newPassword !== confirmNewPassword) return
+    if (!recoveryPasswordValid(newPassword)) {
+      setError("Password must be at least 6 characters with 1 capital, 1 number, and 1 special (. _ - @ ! ? # $ % & *).")
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -401,12 +548,16 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
       setNewPassword("")
       setConfirmNewPassword("")
       setTimeout(() => {
+        const u = forgotUsernameHint.trim() || forgotUsername.trim()
+        if (u) setUsername(u)
         setStep("username")
         setForgotStep("username")
         setForgotUsername("")
         setForgotUsernameHint("")
+        setForgotEmailMasked("")
         setForgotSuccess(false)
         setError(null)
+        forgotTurnstileRef.current?.reset()
       }, 2500)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to reset password")
@@ -455,7 +606,7 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
   const stepLabels: Record<string, string> = {
     username: "Enter your credentials to access your account",
     password: "Enter your admin password",
-    otp: "Enter 4-digit OTP to access admin dashboard",
+    otp: "Enter 6-digit authenticator code",
     blocked: "Account blocked",
     forgot: "Reset your password"
   }
@@ -470,13 +621,15 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
 
   const loadingLabel = step === "username" ? "Verifying" : step === "password" ? "Verifying password" : step === "otp" ? "Verifying code" : step === "forgot" ? "Please wait…" : "Logging in"
   const isAdminTarget = redirectTarget === "admin"
+  const likelyAdminUsername = username.trim().toLowerCase().includes("admin")
+  const showAdminCodeInput = step === "username" && (showAdminQuickField || likelyAdminUsername)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center blur-overlay overflow-y-auto p-3 sm:p-4" onClick={handleClose} role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
       <div className="modal-particle-bg" />
 
       <div ref={contentRef} className="w-full max-w-sm min-w-0 relative z-10" onClick={(e) => e.stopPropagation()}>
-        <div className={`relative transition-all duration-500 overflow-hidden rounded-2xl border border-white/10 bg-navy-950/95 backdrop-blur-2xl shadow-2xl p-6 sm:p-8 ${step === "forgot" ? "bg-indigo-950/40" : ""}`}>
+        <div className={`relative transition-all duration-500 overflow-hidden rounded-[2rem] border border-white/10 bg-[#06060c] backdrop-blur-3xl shadow-[0_0_80px_rgba(0,0,0,0.8)] p-8 ${step === "forgot" ? "border-primary/20" : ""}`}>
 
           {/* Main Content Area */}
           <div className={`transition-all duration-300 ${(loading || redirecting) ? "opacity-0 scale-95 blur-sm pointer-events-none" : "opacity-100 scale-100 blur-0"}`}>
@@ -509,11 +662,34 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
                       <label htmlFor="login-modal-password" className="form-ui-label-dark">Password</label>
                       <input id="login-modal-password" type="password" className="modal-input-enhanced text-white bg-white/5 border-white/10 focus:border-primary/50" placeholder="Your account password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
                     </div>
+                    {showAdminCodeInput ? (
+                      <div>
+                        <label htmlFor="login-modal-admin-code" className="form-ui-label-dark">Authenticator code (admin)</label>
+                        <input
+                          id="login-modal-admin-code"
+                          inputMode="numeric"
+                          maxLength={6}
+                          className="modal-input-enhanced text-white bg-white/5 border-white/10 focus:border-primary/50 tracking-[0.2em]"
+                          placeholder="6-digit code"
+                          value={adminFastCode}
+                          onChange={(e) => setAdminFastCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        />
+                        <p className="mt-1 text-[10px] text-white/40">Using this code enables one-step fast admin sign-in.</p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-left text-[11px] text-white/45 hover:text-white/70 transition-colors"
+                        onClick={() => setShowAdminQuickField(true)}
+                      >
+                        Admin login? Enter authenticator code for faster sign-in
+                      </button>
+                    )}
                   </div>
                   <div className="min-h-[65px] flex items-center justify-center overflow-hidden border border-white/8 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.04]"><TurnstileWidget ref={turnstileRef} theme="dark" size="normal" /></div>
                   <ErrorMsg msg={error} />
                   <button type="submit" className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-black font-bold text-sm tracking-tight shadow-lg shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:shadow-none" disabled={loading || !username.trim() || !password.trim()}>{loading || redirecting ? "Establishing Session..." : "Access Dashboard"}</button>
-                  <button type="button" onClick={() => { setStep("forgot"); setForgotStep("username"); setForgotUsername(""); setError(null) }} className="text-xs text-white/30 hover:text-white w-full text-center py-1 transition-colors">Forgot your access credentials?</button>
+                  <button type="button" onClick={() => { setStep("forgot"); setForgotStep("username"); setForgotUsername(""); setForgotEmailMasked(""); setForgotUsernameHint(""); setError(null); setForgotUseEmail(true) }} className="text-xs text-white/30 hover:text-white w-full text-center py-1 transition-colors">Forgot your access credentials?</button>
                 </form>
               )}
 
@@ -566,6 +742,25 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
                     <div className="p-8 text-center animate-pop"><div className="text-3xl mb-2">✨</div><div className="text-emerald-400 font-bold">Access Restored</div></div>
                   ) : forgotStep === "username" ? (
                     <form onSubmit={submitForgotRequest} className="space-y-4">
+                      <p className="text-xs text-white/50 leading-relaxed">
+                        Enter the <strong className="text-white/70">email on your account</strong> or your <strong className="text-white/70">username</strong>. We email a one-time code to your registered address to confirm it is you, then you set a new password.
+                      </p>
+                      <div className="flex rounded-xl border border-white/10 p-0.5 gap-0.5">
+                        <button
+                          type="button"
+                          className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${forgotUseEmail ? "bg-primary text-black shadow-lg shadow-primary/20" : "text-white/45 hover:text-white/70"}`}
+                          onClick={() => { setForgotUseEmail(true); setForgotUsername(""); setError(null) }}
+                        >
+                          Email
+                        </button>
+                        <button
+                          type="button"
+                          className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!forgotUseEmail ? "bg-primary text-black shadow-lg shadow-primary/20" : "text-white/45 hover:text-white/70"}`}
+                          onClick={() => { setForgotUseEmail(false); setForgotUsername(""); setError(null) }}
+                        >
+                          Username
+                        </button>
+                      </div>
                       <div>
                         <label htmlFor="login-forgot-identity" className="form-ui-label-dark text-indigo-200/70">{forgotUseEmail ? "Account email" : "Username"}</label>
                         <input id="login-forgot-identity" type={forgotUseEmail ? "email" : "text"} className="modal-input-enhanced modal-input-neural" placeholder={forgotUseEmail ? "you@example.com" : "Your username"} value={forgotUsername} onChange={(e) => setForgotUsername(e.target.value)} autoComplete={forgotUseEmail ? "email" : "username"} autoFocus />
@@ -579,38 +774,97 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
                     </form>
                   ) : forgotStep === "otp" ? (
                     <form onSubmit={submitForgotOtp} className="space-y-6">
+                      {forgotEmailMasked ? (
+                        <p className="text-xs text-center text-white/55 leading-relaxed">
+                          Code sent to <span className="text-cyan-300 font-semibold">{forgotEmailMasked}</span>
+                          {forgotUsernameHint ? (
+                            <>
+                              {" "}
+                              · Username: <span className="font-mono text-cyan-200">@{forgotUsernameHint}</span>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
                       <div className="paper-slip-lite bg-white/10 p-4 rounded-xl border border-white/10">
-                        <p className="text-[10px] uppercase font-bold text-white/40 mb-3 text-center tracking-widest">Type your recovery code</p>
+                        <p className="text-[10px] uppercase font-bold text-white/40 mb-1 text-center tracking-widest">Enter code from email</p>
+                        <p className="text-[10px] text-white/35 text-center mb-3">Format IQPS-123 or digits only (e.g. 482)</p>
                         <input
                           type="text"
-                          className="w-full text-center text-3xl font-mono font-bold bg-transparent border-b-2 border-white/20 focus:border-white outline-none py-3 transition-colors text-white"
-                          placeholder="CODE"
+                          inputMode="text"
+                          autoCapitalize="characters"
+                          className="w-full text-center text-2xl sm:text-3xl font-mono font-bold bg-transparent border-b-2 border-white/20 focus:border-white outline-none py-3 transition-colors text-white tracking-wider"
+                          placeholder="IQPS-000"
                           value={forgotOtpInput}
-                          onChange={(e) => setForgotOtpInput(e.target.value.toUpperCase())}
-                          maxLength={11}
+                          onChange={(e) => {
+                            const v = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 8)
+                            setForgotOtpInput(v)
+                          }}
+                          maxLength={8}
                           autoFocus
                         />
                       </div>
                       <ErrorMsg msg={error} />
+                      <p className="text-[10px] text-center text-white/40 leading-relaxed">
+                        Didn&apos;t get the email? Check spam or promotions. You can resend after confirming below.
+                      </p>
+                      <div className="flex justify-center border border-white/8 rounded-xl bg-white/[0.03] py-2 ring-1 ring-white/[0.04] min-h-[65px] items-center">
+                        <TurnstileWidget ref={forgotTurnstileResendRef} theme="dark" size="normal" />
+                      </div>
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => void resendForgotCode()}
+                          disabled={loading || forgotResendSecs > 0}
+                          className="text-[10px] font-semibold text-cyan-400/90 hover:text-cyan-300 disabled:opacity-35 disabled:cursor-not-allowed underline-offset-2 hover:underline"
+                        >
+                          {forgotResendSecs > 0 ? `Resend code in ${forgotResendSecs}s` : "Resend verification email"}
+                        </button>
+                      </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={goBack} className="modal-btn-secondary px-4">←</button>
-                        <button type="submit" disabled={loading} className="modal-btn-neural flex-1">Verify Slip</button>
+                        <button type="submit" disabled={loading || !forgotOtpLooksComplete(forgotOtpInput)} className="modal-btn-neural flex-1">Verify code</button>
                       </div>
                     </form>
                   ) : (
                     <form onSubmit={submitNewPassword} className="space-y-4">
+                      <p className="text-xs text-white/50">Choose a new password for <span className="font-mono text-cyan-300">@{forgotUsernameHint || forgotUsername || "your account"}</span>.</p>
                       <div>
                         <label htmlFor="login-new-pw" className="form-ui-label-dark text-indigo-200/70">New password</label>
-                        <input id="login-new-pw" type="password" className="modal-input-enhanced modal-input-neural" placeholder="At least 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" autoFocus />
+                        <input id="login-new-pw" type="password" className="modal-input-enhanced modal-input-neural" placeholder="6+ chars, cap, number, special" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setError(null) }} autoComplete="new-password" autoFocus />
                       </div>
                       <div>
                         <label htmlFor="login-confirm-pw" className="form-ui-label-dark text-indigo-200/70">Confirm password</label>
-                        <input id="login-confirm-pw" type="password" className="modal-input-enhanced modal-input-neural" placeholder="Re-enter new password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} autoComplete="new-password" />
+                        <input id="login-confirm-pw" type="password" className="modal-input-enhanced modal-input-neural" placeholder="Re-enter new password" value={confirmNewPassword} onChange={(e) => { setConfirmNewPassword(e.target.value); setError(null) }} autoComplete="new-password" />
                       </div>
+                      {newPassword.length > 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 space-y-1.5 text-[10px]">
+                          {[
+                            { ok: newPassword.length >= 6, label: "6+ characters" },
+                            { ok: /[A-Z]/.test(newPassword), label: "1 capital letter" },
+                            { ok: /\d/.test(newPassword), label: "1 number" },
+                            { ok: /[._\-@!?#$%&*]/.test(newPassword), label: "1 special (. _ - @ ! ? # $ % & *)" }
+                          ].map((r) => (
+                            <div key={r.label} className={`flex items-center gap-2 font-semibold ${r.ok ? "text-emerald-400" : "text-white/35"}`}>
+                              <span>{r.ok ? "✓" : "○"}</span> {r.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <ErrorMsg msg={error} />
                       <div className="flex gap-2">
                         <button type="button" onClick={goBack} className="modal-btn-secondary px-4">←</button>
-                        <button type="submit" disabled={loading || newPassword !== confirmNewPassword} className="modal-btn-neural flex-1">Reset</button>
+                        <button
+                          type="submit"
+                          disabled={
+                            loading ||
+                            !recoveryPasswordValid(newPassword) ||
+                            newPassword !== confirmNewPassword ||
+                            confirmNewPassword.length === 0
+                          }
+                          className="modal-btn-neural flex-1"
+                        >
+                          Save new password
+                        </button>
                       </div>
                     </form>
                   )}
@@ -652,23 +906,41 @@ export default function LoginModal({ onClose, initialUsername }: { onClose?: () 
                 <input
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  maxLength={4}
-                  className="w-full text-center text-5xl tracking-[0.4em] font-mono font-bold bg-transparent border-b-4 border-black/10 focus:border-black outline-none py-4 transition-colors"
-                  placeholder="0000"
+                  maxLength={adminOtpDigits}
+                  className="w-full text-center font-mono font-bold bg-transparent border-b-4 border-black/10 focus:border-black outline-none py-4 transition-colors text-4xl tracking-[0.2em]"
+                  placeholder="000000"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, adminOtpDigits))}
                   autoFocus
                 />
               </div>
 
               <ErrorMsg msg={error} />
 
-              <div className="pt-6 border-t border-black/5 text-center">
-                <p className="text-[10px] uppercase font-bold text-black/40 mb-6 leading-relaxed tracking-wider">A synchronization code is required for elevated access.</p>
+              <div className="pt-6 border-t border-black/5 text-center space-y-4">
+                <p className="text-[10px] uppercase font-bold text-black/40 leading-relaxed tracking-wider">
+                  A synchronization code is required for elevated access.
+                </p>
+                <p className="text-[10px] text-black/45 leading-snug px-1">
+                  Enter the rotating code from your authenticator app (secret from server <span className="font-mono">ADMIN_TOTP_SECRET</span>).
+                </p>
+                {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                  <div className="flex justify-center min-h-[65px] items-center opacity-90">
+                    <TurnstileWidget ref={adminOtpTurnstileRef} theme="light" size="normal" />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void resendAdminOtpSession()}
+                  disabled={loading || adminOtpResendSecs > 0}
+                  className="text-[10px] font-semibold text-black/55 hover:text-black disabled:opacity-35 underline-offset-2 hover:underline"
+                >
+                  {adminOtpResendSecs > 0 ? `Refresh session in ${adminOtpResendSecs}s` : "Refresh sign-in session"}
+                </button>
                 <button
                   type="submit"
                   className="w-full py-4 rounded-lg bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-black/90 transition-all active:scale-[0.98]"
-                  disabled={loading || otp.length !== 4}
+                  disabled={loading || otp.length !== adminOtpDigits}
                 >
                   {loading ? "Verifying..." : "Validate Presence"}
                 </button>

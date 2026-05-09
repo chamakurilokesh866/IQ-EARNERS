@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate"
 import UsernameSetForm from "@/components/UsernameSetForm"
@@ -8,6 +8,7 @@ import { fetchWithCsrf } from "@/lib/fetchWithCsrf"
 import MoneyTransferAnimation from "@/components/MoneyTransferAnimation"
 import UsernameCreatedAnimation from "@/components/UsernameCreatedAnimation"
 import { useToast } from "@/context/ToastContext"
+import TurnstileWidget, { type TurnstileWidgetRef } from "@/components/TurnstileWidget"
 
 export default function CreateUsernamePage() {
   const searchParams = useSearchParams()
@@ -19,6 +20,10 @@ export default function CreateUsernamePage() {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [createdUsername, setCreatedUsername] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState("")
+  const [recovering, setRecovering] = useState(false)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileWidgetRef>(null)
 
   // Lock back navigation: prevent returning to create-username with token (no second username without payment)
   useEffect(() => {
@@ -107,6 +112,40 @@ export default function CreateUsernamePage() {
     window.location.replace(`/intro?${params.toString()}`)
   }, [createdUsername])
 
+  const handleRecover = useCallback(async () => {
+    const turnstileToken = turnstileRef.current?.getToken() ?? null
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setRecoveryError("Please complete verification first.")
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+      setRecoveryError("Enter a valid email.")
+      return
+    }
+    setRecovering(true)
+    setRecoveryError(null)
+    try {
+      const res = await fetch("/api/payment/recover-username-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: recoveryEmail.trim().toLowerCase(), turnstileToken: turnstileToken ?? undefined })
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j?.ok || !j?.token) {
+        throw new Error(String(j?.error || "Recovery failed"))
+      }
+      const url = new URL("/create-username", window.location.origin)
+      url.searchParams.set("token", j.token)
+      window.location.replace(url.toString())
+    } catch (e) {
+      setRecoveryError(e instanceof Error ? e.message : "Recovery failed")
+      turnstileRef.current?.reset()
+    } finally {
+      setRecovering(false)
+    }
+  }, [recoveryEmail])
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 app-page-surface">
       <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none -z-10" />
@@ -152,6 +191,29 @@ export default function CreateUsernamePage() {
               >
                 Go to Payment
               </button>
+              <div className="mt-5 w-full max-w-sm rounded-xl border border-white/10 bg-white/5 p-4 text-left">
+                <p className="text-xs font-semibold text-white">Already paid but missed username setup?</p>
+                <p className="mt-1 text-[11px] text-white/60">Enter the same payment email to recover your username setup link.</p>
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="mt-3 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-primary/60"
+                />
+                <div className="mt-3 flex min-h-[56px] items-center justify-center overflow-x-auto overflow-y-hidden rounded-xl border border-white/[0.06] bg-[#050810] py-1">
+                  <TurnstileWidget ref={turnstileRef} theme="dark" size="compact" />
+                </div>
+                {recoveryError && <p className="mt-2 text-[11px] text-red-300">{recoveryError}</p>}
+                <button
+                  type="button"
+                  onClick={handleRecover}
+                  disabled={recovering}
+                  className="mt-3 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
+                >
+                  {recovering ? "Recovering..." : "Recover username setup"}
+                </button>
+              </div>
             </div>
           </div>
         )}

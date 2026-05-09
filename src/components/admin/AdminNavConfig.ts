@@ -12,6 +12,7 @@ export type AdminTab =
   | "Certificates"
   | "Alerts"
   | "Analytics"
+  | "DataRoom"
   | "System"
   | "Settings"
   | "Ads"
@@ -26,6 +27,8 @@ export type AdminTab =
   | "APIKeys"
   | "QuizModes"
   | "WhiteLabel"
+  | "MoneyRisk"
+  | "Security"
 
 export type NavSection =
   | "Dashboard"
@@ -71,12 +74,27 @@ export const ADMIN_NAV_ITEMS: {
   { key: "Certificates", icon: "📜", label: "Certificates", section: "Quiz", keywords: ["cert", "download"] },
   { key: "Leaderboard", icon: "📊", label: "Leaderboard & referrals", section: "Quiz", keywords: ["rankings", "scores", "winners", "transparency", "referrals", "referral"] },
   { key: "Payments", icon: "💰", label: "Payments", section: "Payments", keywords: ["revenue", "pending", "approve", "upi", "cashfree", "wallet", "payout", "withdrawal", "qr", "entry fee", "gateway", "history"] },
+  {
+    key: "MoneyRisk",
+    icon: "⚖",
+    label: "Money & disputes",
+    section: "Payments",
+    keywords: ["ledger", "tournament fee", "prize pool", "chargeback", "fraud", "dispute", "reconciliation", "platform fee"],
+  },
   { key: "Ads", icon: "📢", label: "Ads", section: "Growth", keywords: ["advertising", "adslot", "affiliate"] },
   { key: "Analytics", icon: "📈", label: "Analytics", section: "Growth", keywords: ["stats", "charts", "revenue"] },
+  { key: "DataRoom", icon: "📦", label: "Buyer Data Room", section: "Growth", keywords: ["acquisition", "due diligence", "buyer", "investor", "mrr", "arr", "export"] },
   { key: "Settings", icon: "⚙", label: "Global Settings", section: "Platform", keywords: ["navbar", "seo", "maintenance", "social", "instagram", "facebook", "vip", "modal", "audience"] },
   { key: "Alerts", icon: "🔔", label: "Alerts", section: "Operations", keywords: ["notifications", "broadcast"] },
   { key: "System", icon: "🛠", label: "System Tools", section: "Operations", keywords: ["broadcast", "sponsors", "backup", "push", "email"] },
   { key: "Reports", icon: "🚩", label: "Reports & audit", section: "Operations", keywords: ["feedback", "integrity", "reports", "login", "admin login"] },
+  {
+    key: "Security",
+    icon: "🔐",
+    label: "Security",
+    section: "Operations",
+    keywords: ["webhook", "rate limit", "verify order", "blocked ip", "forensics", "ops"],
+  },
   {
     key: "AIAssistant",
     icon: "AI",
@@ -103,6 +121,7 @@ export const PAYMENTS_JUMP_LINKS = [
   { id: "payment-cashfree", label: "Cashfree gateway" },
   { id: "payment-qr", label: "UPI QR & ID" },
   { id: "payment-entry-fee", label: "Entry fee" },
+  { id: "payment-tournament-fee", label: "Tournament fee %" },
   { id: "payment-blocked", label: "Blocked amounts" },
 ] as const
 

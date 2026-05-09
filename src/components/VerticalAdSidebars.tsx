@@ -31,7 +31,7 @@ export default function VerticalAdSidebars() {
     <>
       {/* Left rail - fixed, only on xl screens; offset by sidebar (88px) when sidebar is shown */}
       <aside
-        className={`hidden xl:block fixed top-24 z-30 w-[180px] pointer-events-auto ${hasSidebar ? "left-[calc(1rem+72px+0.75rem)]" : "left-2"}`}
+        className={`hidden xl:block fixed top-24 z-30 w-[180px] pointer-events-auto ${hasSidebar ? "left-[100px]" : "left-2"}`}
         aria-label="Advertisement"
       >
         <div className="ad-rail-vertical sticky top-24">

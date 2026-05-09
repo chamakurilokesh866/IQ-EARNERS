@@ -10,15 +10,16 @@ import {
   type ReactNode,
 } from "react"
 
-/** App is quiz-themed dark only; appearance toggle removed. */
-export type Theme = "dark"
+export type Theme = "dark" | "light"
 
 const STORAGE_KEY = "iq_theme"
 
 export function applyThemeToDocument() {
   if (typeof document === "undefined") return
-  document.documentElement.setAttribute("data-theme", "dark")
-  document.documentElement.style.colorScheme = "dark"
+  const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "dark"
+  const next: Theme = stored === "light" ? "light" : "dark"
+  document.documentElement.setAttribute("data-theme", next)
+  document.documentElement.style.colorScheme = next
 }
 
 type ThemeContextValue = {
@@ -31,28 +32,46 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme] = useState<Theme>("dark")
+  const [theme, setThemeState] = useState<Theme>("dark")
 
   useEffect(() => {
-    applyThemeToDocument()
     try {
-      localStorage.setItem(STORAGE_KEY, "dark")
+      const stored = localStorage.getItem(STORAGE_KEY)
+      const next: Theme = stored === "light" ? "light" : "dark"
+      setThemeState(next)
+      document.documentElement.setAttribute("data-theme", next)
+      document.documentElement.style.colorScheme = next
     } catch {
-      /* ignore */
+      setThemeState("dark")
+      document.documentElement.setAttribute("data-theme", "dark")
+      document.documentElement.style.colorScheme = "dark"
     }
   }, [])
 
-  const setTheme = useCallback((_t: Theme) => {
-    applyThemeToDocument()
+  const setTheme = useCallback((t: Theme) => {
+    const next: Theme = t === "light" ? "light" : "dark"
+    setThemeState(next)
+    document.documentElement.setAttribute("data-theme", next)
+    document.documentElement.style.colorScheme = next
     try {
-      localStorage.setItem(STORAGE_KEY, "dark")
+      localStorage.setItem(STORAGE_KEY, next)
     } catch {
       /* ignore */
     }
   }, [])
 
   const toggleTheme = useCallback(() => {
-    applyThemeToDocument()
+    setThemeState((prev) => {
+      const next: Theme = prev === "dark" ? "light" : "dark"
+      document.documentElement.setAttribute("data-theme", next)
+      document.documentElement.style.colorScheme = next
+      try {
+        localStorage.setItem(STORAGE_KEY, next)
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
   }, [])
 
   const value = useMemo(

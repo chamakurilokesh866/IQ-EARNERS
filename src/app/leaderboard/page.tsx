@@ -64,7 +64,7 @@ export default function Page() {
   }, [players])
 
   return (
-    <main className="relative min-h-screen w-full overflow-x-hidden app-page-surface">
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-transparent leaderboard-premium-shell">
       <Navbar />
       <PaidGate>
         <AdSlot slotId="leaderboard_top" />

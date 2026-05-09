@@ -36,10 +36,20 @@ function isProtectedPath(pathname: string): boolean {
 
 function getSecurityHeaders(): [string, string][] {
   const isProd = process.env.NODE_ENV === "production"
+  const isCashfreeProd = process.env.CASHFREE_ENV === "production"
+  const cfSandboxExplicit = isCashfreeProd
+    ? ""
+    : " https://sandbox.cashfree.com https://sandbox.api.cashfree.com https://payments-test.cashfree.com"
+  const cfFormSandbox = isCashfreeProd ? "" : " https://sandbox.api.cashfree.com"
+  const cfConnectSandbox = isCashfreeProd ? "" : " https://sandbox.api.cashfree.com"
+  const cfChildTest = isCashfreeProd ? "" : " https://payments-test.cashfree.com"
   const base: [string, string][] = [
     ["X-Content-Type-Options", "nosniff"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
-    ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()"],
+    [
+      "Permissions-Policy",
+      'camera=(), microphone=(), geolocation=(), usb=(), xr-spatial-tracking=(self "https://challenges.cloudflare.com")',
+    ],
     ["X-DNS-Prefetch-Control", "off"],
     ["Cross-Origin-Opener-Policy", "same-origin"],
     ["Cross-Origin-Resource-Policy", "same-origin"],
@@ -50,18 +60,27 @@ function getSecurityHeaders(): [string, string][] {
       ["Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload"],
       ["Content-Security-Policy",
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://challenges.cloudflare.com https://sdk.cashfree.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.adtrafficquality.google https://*.google-analytics.com https://*.google; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://challenges.cloudflare.com https://sdk.cashfree.com https://*.cashfree.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.adtrafficquality.google https://*.google-analytics.com https://*.google; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
         "font-src 'self' https://fonts.gstatic.com data:; " +
         "img-src 'self' data: blob: https:; " +
         "media-src 'self' https: http: blob:; " +
-        "connect-src 'self' https: wss: https://api.cashfree.com https://challenges.cloudflare.com https://*.supabase.co https://integrate.api.nvidia.com https://*.adtrafficquality.google; " +
-        "frame-src 'self' https://challenges.cloudflare.com https://sdk.cashfree.com https://*.google.com https://*.doubleclick.net https://*.adtrafficquality.google https://*.google; " +
+        "connect-src 'self' https: wss: https://api.cashfree.com https://challenges.cloudflare.com" +
+        cfConnectSandbox +
+        " https://*.supabase.co https://integrate.api.nvidia.com https://*.adtrafficquality.google; " +
+        "frame-src 'self' https://challenges.cloudflare.com https://sdk.cashfree.com https://*.cashfree.com https://api.cashfree.com https://payments.cashfree.com" +
+        cfSandboxExplicit +
+        " https://*.google.com https://*.doubleclick.net https://*.adtrafficquality.google https://*.google" +
+        " https://*.googlesyndication.com https://pagead2.googlesyndication.com https://tpc.googlesyndication.com; " +
         "worker-src 'self' blob:; " +
-        "child-src 'self' https://challenges.cloudflare.com; " +
+        "child-src 'self' https://challenges.cloudflare.com https://sdk.cashfree.com https://*.cashfree.com https://payments.cashfree.com" +
+        cfChildTest +
+        " https://*.googlesyndication.com https://pagead2.googlesyndication.com https://tpc.googlesyndication.com; " +
         "object-src 'none'; " +
         "base-uri 'self'; " +
-        "form-action 'self' https://api.cashfree.com https://sandbox.api.cashfree.com; " +
+        "form-action 'self' https://api.cashfree.com" +
+        cfFormSandbox +
+        "; " +
         "upgrade-insecure-requests"
       ],
     )
@@ -69,7 +88,22 @@ function getSecurityHeaders(): [string, string][] {
   return base
 }
 
-const PUBLIC_PATHS = ["/intro", "/blocked", "/unblock", "/more/admin-login", "/more/join", "/more/terms", "/more/privacy", "/payment/callback", "/create-username", "/creator-join", "/creator"]
+/** Logged-out / unpaid-safe: marketing, legal, payments, and public API docs (no access to /home). */
+const PUBLIC_PATHS = [
+  "/intro",
+  "/blocked",
+  "/unblock",
+  "/more/admin-login",
+  "/more/join",
+  "/more/terms",
+  "/more/privacy",
+  "/payment/callback",
+  "/create-username",
+  "/creator-join",
+  "/creator",
+  "/integration-guide",
+  "/more/api-guide"
+]
 
 const USER_APP_PATHS = ["/home", "/tournaments", "/daily-quiz", "/leaderboard", "/prizes", "/dashboard", "/user", "/mock-exam", "/contact"]
 const USER_APP_PREFIX = "/more"
@@ -83,11 +117,34 @@ function decodeCookieUsername(raw: string): string {
   }
 }
 
+function readOrgSlugFromSessionCookie(raw: string): string {
+  if (!raw) return ""
+  const token = raw.split(".")[0]
+  if (!token) return ""
+  try {
+    const b64 = token.replace(/-/g, "+").replace(/_/g, "/")
+    const padded = b64 + "=".repeat((4 - (b64.length % 4 || 4)) % 4)
+    const json = decodeURIComponent(escape(atob(padded)))
+    const obj = JSON.parse(json) as { orgSlug?: string }
+    return typeof obj.orgSlug === "string" ? obj.orgSlug : ""
+  } catch {
+    return ""
+  }
+}
+
 export async function middleware(req: NextRequest) {
   try {
     const { pathname } = req.nextUrl
     if (pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname.startsWith("/payment") || pathname === "/create-username") {
       const res = NextResponse.next()
+      getSecurityHeaders().forEach(([k, v]) => res.headers.set(k, v))
+      return res
+    }
+    const orgSlug = readOrgSlugFromSessionCookie(req.cookies.get("org_session")?.value ?? "")
+    if (orgSlug && pathname !== "/maintenance" && pathname !== "/blocked" && pathname !== "/unblock") {
+      const url = req.nextUrl.clone()
+      url.pathname = `/org/${orgSlug}`
+      const res = NextResponse.redirect(url)
       getSecurityHeaders().forEach(([k, v]) => res.headers.set(k, v))
       return res
     }
@@ -111,6 +168,32 @@ export async function middleware(req: NextRequest) {
     const isEncodedAdminPath = pathname.startsWith("/a/")
     const slug = isEncodedAdminPath ? pathname.slice(3).replace(/\/.*$/, "") : ""
     const encodedAdminAllowed = isEncodedAdminPath && slug === adminSlug && isAdmin
+
+    const adminIpAllowlist = (process.env.ADMIN_IP_ALLOWLIST ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (encodedAdminAllowed && adminIpAllowlist.length > 0) {
+      const { getClientIp } = await import("@/lib/inspectSecurity")
+      const currentIp = req.ip || getClientIp(req)
+      if (!adminIpAllowlist.includes(currentIp)) {
+        console.warn(
+          JSON.stringify({
+            t: new Date().toISOString(),
+            level: "warn",
+            msg: "admin_ip_blocked",
+            path: pathname,
+            ip: currentIp
+          })
+        )
+        const url = req.nextUrl.clone()
+        url.pathname = "/intro"
+        url.searchParams.set("msg", "admin-ip-denied")
+        const denied = NextResponse.redirect(url)
+        getSecurityHeaders().forEach(([k, v]) => denied.headers.set(k, v))
+        return denied
+      }
+    }
 
     // 🛡️ SECURITY: Global IP Block Check (DevTools/Abuse Detection)
     // Run this BEFORE isAdmin to ensure the block is absolute if desired, 
@@ -158,25 +241,19 @@ export async function middleware(req: NextRequest) {
     }
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
     const paid = req.cookies.get("paid")?.value === "1"
+    const uid = req.cookies.get("uid")?.value ?? ""
     const usernameCookie = req.cookies.get("username")?.value ?? ""
     const username = decodeCookieUsername(usernameCookie)
+    const hasIdentity = Boolean(username || uid)
 
-    if (pathname === "/" && paid && (username || isAdmin)) {
+    if (pathname === "/" && paid && (hasIdentity || isAdmin)) {
       const url = req.nextUrl.clone()
       if (isAdmin) {
         url.pathname = `/a/${adminSlug}`
       } else {
         let sid = getSidFromReq(req)
-        const uidCookie = req.cookies.get("uid")?.value ?? ""
         if (!sid) {
-          if (uidCookie) {
-            const urlIntro = req.nextUrl.clone()
-            urlIntro.pathname = "/intro"
-            urlIntro.searchParams.set("msg", "auth-required")
-            const resIntro = NextResponse.redirect(urlIntro)
-            getSecurityHeaders().forEach(([k, v]) => resIntro.headers.set(k, v))
-            return resIntro
-          }
+          // Recover gracefully when sid cookie is missing/stale but auth cookies exist.
           sid = genSid()
         }
         url.pathname = "/home"
@@ -218,26 +295,22 @@ export async function middleware(req: NextRequest) {
     let allowed =
       isPublic ||
       encodedAdminAllowed ||
-      (isUserAppPath && paid && username) ||
-      (pathname === "/" && paid && (username || isAdmin))
+      (isUserAppPath && paid && hasIdentity) ||
+      (pathname === "/" && paid && (hasIdentity || isAdmin))
 
-    if (allowed && isUserAppPath && paid && username && !encodedAdminAllowed) {
+    if (allowed && isUserAppPath && paid && hasIdentity && !encodedAdminAllowed) {
       const urlSid = req.nextUrl.searchParams.get("sid")
       let cookieSid = getSidFromReq(req)
-      const uidCookie = req.cookies.get("uid")?.value ?? ""
 
       if (!cookieSid) {
-        if (uidCookie) {
-          allowed = false
-        } else {
-          cookieSid = genSid()
-          const url = req.nextUrl.clone()
-          url.searchParams.set("sid", cookieSid)
-          const res = NextResponse.redirect(url)
-          setSidCookie(res, cookieSid)
-          getSecurityHeaders().forEach(([k, v]) => res.headers.set(k, v))
-          return res
-        }
+        // Recover sid session instead of forcing auth-required bounce.
+        cookieSid = genSid()
+        const url = req.nextUrl.clone()
+        url.searchParams.set("sid", cookieSid)
+        const res = NextResponse.redirect(url)
+        setSidCookie(res, cookieSid)
+        getSecurityHeaders().forEach(([k, v]) => res.headers.set(k, v))
+        return res
       } else if (!urlSid) {
         const url = req.nextUrl.clone()
         url.searchParams.set("sid", cookieSid)
@@ -300,6 +373,8 @@ export const config = {
     "/creator-join",
     "/creator/:path*",
     "/verify/:path*",
-    "/contact"
+    "/contact",
+    "/integration-guide",
+    "/integration-guide/:path*"
   ]
 }

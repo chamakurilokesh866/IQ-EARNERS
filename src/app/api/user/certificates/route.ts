@@ -3,9 +3,10 @@ import { cookies } from "next/headers"
 import { promises as fs } from "fs"
 import path from "path"
 import { getLeaderboard } from "@/lib/leaderboard"
-import { getProfiles, getProfileByUid } from "@/lib/profiles"
+import { getProfileByUid } from "@/lib/profiles"
 import { getTournaments } from "@/lib/tournaments"
 import { getSettings } from "@/lib/settings"
+import { getPayments } from "@/lib/payments"
 
 const DATA_DIR = path.join(process.cwd(), "src", "data")
 
@@ -35,6 +36,18 @@ export async function GET() {
     } catch {}
   }
   if (!username) return NextResponse.json({ ok: true, data: [] })
+  const profile = uid ? await getProfileByUid(uid) : null
+  const isPaidMember = profile?.paid === "P" || profile?.paid === "A"
+  if (!isPaidMember) return NextResponse.json({ ok: true, data: [] })
+
+  const payments = await getPayments()
+  const hasApprovedPayment = payments.some((p) => {
+    if (p.status !== "success") return false
+    if (uid && p.profileId === uid) return true
+    const metaUsername = String((p.meta as Record<string, unknown> | undefined)?.username ?? "").trim().toLowerCase()
+    return metaUsername === username.toLowerCase()
+  })
+  if (!hasApprovedPayment) return NextResponse.json({ ok: true, data: [] })
 
   const [leaderboard, tournaments, settings] = await Promise.all([
     getLeaderboard(),
@@ -55,9 +68,10 @@ export async function GET() {
   const certificates: { tournamentId: string; tournamentTitle: string; score: number; total?: number; type: "1st" | "runner_up" | "participation" }[] = []
 
   const manualTxt = await fs.readFile(path.join(DATA_DIR, "certificates.json"), "utf-8").catch(() => "[]")
-  const manual: { username?: string; type?: string; tournamentTitle?: string }[] = JSON.parse(manualTxt || "[]")
+  const manual: { username?: string; type?: string; tournamentTitle?: string; approved?: boolean }[] = JSON.parse(manualTxt || "[]")
   for (const m of manual) {
     if (String(m?.username ?? "").toLowerCase() !== nameLower) continue
+    if (m.approved === false) continue
     const t = m.type === "runner_up" || m.type === "participation" ? m.type : "1st"
     certificates.push({
       tournamentId: "manual",

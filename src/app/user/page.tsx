@@ -21,7 +21,7 @@ import { BADGES } from "../../lib/badges"
 import { useDashboardTour } from "../../components/ProgressBarSide"
 import { UserDashboardSkeleton } from "../../components/Skeleton"
 import { performLogout } from "@/lib/logout"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import { SITE_NAME, SITE_URL, DEFAULT_OG_IMAGE_URL } from "@/lib/seo"
 import { useToast } from "@/context/ToastContext"
 import { useNotificationsOptional } from "@/context/NotificationContext"
 import AdSlot from "../../components/AdSlot"
@@ -80,6 +80,90 @@ function Chart({ points }: { points: number[] }) {
       ) : (
         <div className="py-12 text-center text-sm font-bold text-[#8892a4] dark:text-slate-500">No performance data yet</div>
       )}
+    </div>
+  )
+}
+
+function ScoreDistributionChart({ rows }: { rows: Array<{ score: number; total: number }> }) {
+  const buckets = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0]
+    for (const r of rows) {
+      const total = Number(r.total || 0)
+      if (total <= 0) continue
+      const pct = (Number(r.score || 0) / total) * 100
+      if (pct < 40) counts[0] += 1
+      else if (pct < 60) counts[1] += 1
+      else if (pct < 75) counts[2] += 1
+      else if (pct < 90) counts[3] += 1
+      else counts[4] += 1
+    }
+    const labels = ["0-39%", "40-59%", "60-74%", "75-89%", "90-100%"]
+    return labels.map((label, i) => ({ label, count: counts[i] ?? 0 }))
+  }, [rows])
+
+  const max = Math.max(1, ...buckets.map((b) => b.count))
+  return (
+    <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-xs font-black uppercase tracking-widest text-[#1a2340] dark:text-slate-100">Score Distribution</div>
+        <div className="text-[10px] font-black uppercase tracking-wider text-[#64748b] dark:text-slate-400">Recent Attempts</div>
+      </div>
+      <div className="space-y-3">
+        {buckets.map((b) => (
+          <div key={b.label} className="grid grid-cols-[64px_1fr_30px] items-center gap-3">
+            <div className="text-[10px] font-black text-[#64748b] dark:text-slate-400">{b.label}</div>
+            <div className="h-2.5 rounded-full bg-[#eef2f8] dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#7c3aed] to-[#a78bfa]"
+                style={{ width: `${(b.count / max) * 100}%` }}
+              />
+            </div>
+            <div className="text-[10px] font-black text-[#1a2340] dark:text-slate-100 tabular-nums text-right">{b.count}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WeeklyActivityHeatmap({ dates }: { dates: string[] }) {
+  const days = useMemo(() => {
+    const set = new Set(dates.map((d) => String(d).slice(0, 10)))
+    const arr: Array<{ label: string; key: string; active: boolean }> = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      arr.push({
+        label: d.toLocaleDateString(undefined, { weekday: "short" }),
+        key,
+        active: set.has(key)
+      })
+    }
+    return arr
+  }, [dates])
+
+  return (
+    <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-xs font-black uppercase tracking-widest text-[#1a2340] dark:text-slate-100">Weekly Consistency</div>
+        <div className="text-[10px] font-black uppercase tracking-wider text-[#64748b] dark:text-slate-400">Last 7 Days</div>
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {days.map((d) => (
+          <div key={d.key} className="text-center">
+            <div
+              className={`h-10 rounded-xl border ${
+                d.active
+                  ? "bg-emerald-100 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-700"
+                  : "bg-[#f8fafc] dark:bg-slate-800/60 border-[#e8eaf0] dark:border-white/10"
+              }`}
+              title={`${d.label} • ${d.active ? "Active" : "Inactive"}`}
+            />
+            <div className="mt-1 text-[10px] font-bold text-[#64748b] dark:text-slate-400">{d.label}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -201,6 +285,32 @@ function RankAndNext({ username }: { username: string | null }) {
   )
 }
 
+function LearningPathCard({ weakTopics }: { weakTopics: Array<{ topic: string; accuracy: number; attempts: number; recommendation: string }> }) {
+  return (
+    <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm">
+      <div className="text-[10px] font-black uppercase tracking-widest text-[#1a2340] dark:text-slate-100 mb-4 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+        Adaptive Learning Path
+      </div>
+      {weakTopics.length === 0 ? (
+        <p className="text-xs text-[#64748b] dark:text-slate-400">Complete more quizzes to unlock weak-topic recommendations.</p>
+      ) : (
+        <div className="space-y-3">
+          {weakTopics.map((w) => (
+            <div key={w.topic} className="rounded-xl border border-[#e8eaf0] dark:border-white/10 bg-[#f8fafc] dark:bg-slate-800/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-black text-[#1a2340] dark:text-slate-100">{w.topic}</div>
+                <div className="text-[10px] font-black text-amber-600 dark:text-amber-400">{w.accuracy}% • {w.attempts} Qs</div>
+              </div>
+              <p className="mt-1 text-[11px] text-[#64748b] dark:text-slate-400">{w.recommendation}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function NextTournamentInfo() {
   const [text, setText] = useState("No upcoming tournaments")
   useEffect(() => {
@@ -234,6 +344,8 @@ export default function Page() {
   const [referralCode, setReferralCode] = useState<string>("")
   const [shareUrl, setShareUrl] = useState("")
   const [country, setCountry] = useState<string | null>(null)
+  const [memberId, setMemberId] = useState<string | null>(null)
+  const [memberPaid, setMemberPaid] = useState(false)
   const [achievements, setAchievements] = useState<string[]>([])
   const [badgeDefs, setBadgeDefs] = useState<Record<string, { icon: string; label: string; desc: string }>>({})
   const [quizHistory, setQuizHistory] = useState<Array<{ date: string; score: number; total: number }>>([])
@@ -247,18 +359,24 @@ export default function Page() {
   const notifiedCertRef = useRef(false)
   const notifiedReferralRef = useRef(false)
   const spinSectionRef = useRef<HTMLDivElement>(null)
+  const certSectionRef = useRef<HTMLDivElement>(null)
   const [pendingSpinQuizId, setPendingSpinQuizId] = useState<string | null>(null)
+  const [weakTopics, setWeakTopics] = useState<Array<{ topic: string; accuracy: number; attempts: number; recommendation: string }>>([])
+  const [legalName, setLegalName] = useState("")
+  const [legalNameDraft, setLegalNameDraft] = useState("")
+  const [savingLegalName, setSavingLegalName] = useState(false)
+  const quizDateSeries = useMemo(() => quizHistory.map((h) => h.date).filter(Boolean), [quizHistory])
 
   useEffect(() => {
     if (!addNotification) return
     if (certificates.length > 0 && !notifiedCertRef.current) {
       notifiedCertRef.current = true
-      addNotification("Certificate(s) available for download.", "certificate")
+      addNotification("Certificate(s) available for download.", "certificate", "/user?highlight=certificates")
     }
     const credited = referrals.filter((r: any) => r.referrerUid === uid && (r.status === "credited" || r.status === "success"))
     if (credited.length > 0 && !notifiedReferralRef.current) {
       notifiedReferralRef.current = true
-      addNotification("Referral earned! Check your wallet.", "referral")
+      addNotification("Referral earned! Check your wallet.", "referral", "/user?tab=Referrals")
     }
   }, [addNotification, certificates.length, referrals, uid])
 
@@ -276,6 +394,16 @@ export default function Page() {
     setTab("Overview")
     const scrollT = window.setTimeout(() => {
       spinSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 200)
+    router.replace("/user", { scroll: false })
+    return () => clearTimeout(scrollT)
+  }, [searchParams, router])
+
+  useEffect(() => {
+    if (searchParams?.get("highlight") !== "certificates") return
+    setTab("Certificates")
+    const scrollT = window.setTimeout(() => {
+      certSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     }, 200)
     router.replace("/user", { scroll: false })
     return () => clearTimeout(scrollT)
@@ -303,14 +431,20 @@ export default function Page() {
       fetch("/api/referrals", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: [] })),
       fetch("/api/user/profile", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: null })),
       fetch("/api/user/stats", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: {} })),
-      fetch("/api/user/certificates", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: [] }))
-    ]).then(([part, pay, activityRes, lead, tourn, refs, prof, statsRes, certRes]) => {
+      fetch("/api/user/certificates", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: [] })),
+      fetch("/api/user/learning-path", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ data: { weakTopics: [] } }))
+    ]).then(([part, pay, activityRes, lead, tourn, refs, prof, statsRes, certRes, learningRes]) => {
       const uname = prof?.data?.username ?? username
       const ctry = prof?.data?.country
       const myUid = prof?.data?.uid ?? null
       if (uname && uname !== username) setUsername(uname)
       if (myUid) setUid(myUid)
       if (ctry !== undefined && ctry !== country) setCountry(ctry ?? null)
+      setMemberId(typeof prof?.data?.memberId === "string" ? prof.data.memberId : null)
+      setMemberPaid(prof?.data?.paid === "P" || prof?.data?.paid === "A")
+      const profileLegalName = typeof prof?.data?.legalName === "string" ? prof.data.legalName.trim() : ""
+      setLegalName(profileLegalName)
+      setLegalNameDraft(profileLegalName)
       const plist = Array.isArray(part?.data) ? part.data : []
       const myEnrolls = plist.filter((p: any) => uname ? (p.name === uname) : false)
       const rows: Array<{ title: string; meta?: string; when?: string; points?: string }> = myEnrolls.slice(-5).reverse().map((p: any) => ({
@@ -373,10 +507,10 @@ export default function Page() {
       const papers = Array.isArray(statsRes?.data?.completedPapers) ? statsRes.data.completedPapers : []
       setCompletedPapers(papers)
       setCertificates(Array.isArray(certRes?.data) ? certRes.data : [])
+      const weak = Array.isArray(learningRes?.data?.weakTopics) ? learningRes.data.weakTopics : []
+      setWeakTopics(weak)
       const paidFromPayments = myPays.some((p: any) => p.status === "success")
-      const hasProfile = !!prof?.data?.username
-      const paidCookie = typeof window !== "undefined" && (document.cookie.includes("paid=1") || localStorage?.getItem("paid") === "1")
-      const paid = paidFromPayments || hasProfile || paidCookie
+      const paid = paidFromPayments || prof?.data?.paid === "P" || prof?.data?.paid === "A"
       if (!paid && typeof window !== "undefined") {
         window.location.replace("/intro")
       }
@@ -400,7 +534,7 @@ export default function Page() {
   }, [tab])
   return (
     <PaidGate>
-    <main className="min-h-screen app-page-surface">
+    <main className="min-h-screen bg-transparent">
       {showTour && <DashboardTour onClose={skip} />}
       <Navbar />
       <section className="mx-auto max-w-7xl px-4 sm:px-6 pt-2 pb-6 sm:pt-3 sm:pb-12 lg:pt-2">
@@ -496,6 +630,10 @@ export default function Page() {
                     ) : null}
                   </div>
                   <Chart points={trendPoints} />
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <ScoreDistributionChart rows={quizHistory} />
+                    <WeeklyActivityHeatmap dates={quizDateSeries} />
+                  </div>
                   <Activity rows={activityRows} />
                   {quizHistory.length > 0 && (
                     <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-5">
@@ -545,6 +683,7 @@ export default function Page() {
                 <div className="space-y-6">
                   <QuickActions />
                   <RankAndNext username={username} />
+                  <LearningPathCard weakTopics={weakTopics} />
                 </div>
               </div>
             )}
@@ -601,8 +740,8 @@ export default function Page() {
               </div>
             )}
             {tab === "Certificates" && (
-              <div className="mt-8">
-                <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm">
+              <div className="mt-8" ref={certSectionRef}>
+                <div className="bg-white dark:bg-slate-900/90 border border-[#e8eaf0] dark:border-white/10 rounded-2xl p-6 shadow-sm scroll-mt-28">
                   <div className="text-[10px] font-black uppercase tracking-widest text-[#1a2340] dark:text-slate-100 mb-5 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed]" />
                     My Certificates
@@ -611,6 +750,56 @@ export default function Page() {
                   {!certificates.length ? (
                     <div className="py-12 text-center text-sm font-bold text-[#8892a4] dark:text-slate-500">No certificates available yet</div>
                   ) : (
+                    <div className="space-y-4">
+                      {!legalName && (
+                        <div className="rounded-2xl border border-amber-300/30 bg-amber-50/70 dark:bg-amber-900/20 p-4">
+                          <p className="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Certificate legal name required</p>
+                          <p className="mt-1 text-xs font-semibold text-amber-800/80 dark:text-amber-200/80">
+                            Set your legal name once. Download will be enabled after saving.
+                          </p>
+                        </div>
+                      )}
+                      <div className="rounded-2xl border border-[#e8eaf0] dark:border-white/10 bg-white/60 dark:bg-slate-900/60 p-4">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#1a2340] dark:text-slate-100">Legal Name on Certificate</label>
+                        <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            value={legalNameDraft}
+                            onChange={(e) => setLegalNameDraft(e.target.value)}
+                            placeholder="Enter full legal name"
+                            className="w-full rounded-xl border border-[#e8eaf0] dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-[#1a2340] dark:text-slate-100 outline-none focus:border-[#7c3aed]"
+                            autoComplete="name"
+                          />
+                          <button
+                            type="button"
+                            disabled={savingLegalName || legalNameDraft.trim().length < 3}
+                            onClick={async () => {
+                              try {
+                                setSavingLegalName(true)
+                                const res = await fetch("/api/user/profile/legal-name", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({ legalName: legalNameDraft.trim() })
+                                })
+                                const j = await res.json().catch(() => ({}))
+                                if (!res.ok || !j?.ok) throw new Error(String(j?.error || "Failed to save legal name"))
+                                const saved = String(j?.data?.legalName ?? legalNameDraft).trim()
+                                setLegalName(saved)
+                                setLegalNameDraft(saved)
+                                showToast("Legal name saved for certificates.")
+                              } catch (e) {
+                                showToast(e instanceof Error ? e.message : "Failed to save legal name")
+                              } finally {
+                                setSavingLegalName(false)
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl bg-[#1a2340] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                          >
+                            {savingLegalName ? "Saving..." : legalName ? "Update" : "Save"}
+                          </button>
+                        </div>
+                      </div>
                     <ul className="space-y-4">
                       {certificates.map((c, i) => {
                         const typeLabel = c.type === "runner_up" ? "Runner Up" : c.type === "participation" ? "Participation" : "1st Winner"
@@ -624,31 +813,62 @@ export default function Page() {
                             <div className="flex flex-wrap items-center gap-3">
                               <button
                                 type="button"
+                                disabled={!legalName || !memberPaid}
                                 onClick={() => {
+                                  if (!legalName) {
+                                    showToast("Set your legal name before downloading certificate.")
+                                    return
+                                  }
+                                  if (!memberPaid) {
+                                    showToast("Only successful paid and approved members can download certificates.")
+                                    return
+                                  }
                                   fetch("/api/certificates/templates").then((r) => r.json()).then((tRes) => {
                                     const templates = tRes?.data ?? {}
                                     const key = c.type === "runner_up" ? "runnerUp" : c.type === "participation" ? "participation" : "first"
+                                    const participationBranding =
+                                      c.type === "participation"
+                                        ? {
+                                            siteName: SITE_NAME,
+                                            siteUrl: SITE_URL,
+                                            logoUrl: DEFAULT_OG_IMAGE_URL,
+                                            contextLine:
+                                              "For active participation and commitment in our competitive quiz program.",
+                                          }
+                                        : {}
                                     generateCertificate({
-                                      recipientName: username || "Participant",
+                                      recipientName: legalName,
                                       tournamentName: c.tournamentTitle,
                                       type: (c.type as "1st" | "runner_up" | "participation") ?? "1st",
                                       score: c.score,
                                       total: c.total,
-                                      templateImageBase64: templates[key]
+                                      memberId: memberId ?? undefined,
+                                      templateImageBase64: templates[key],
+                                      ...participationBranding,
                                     })
                                   }).catch(() => {
                                     generateCertificate({
-                                      recipientName: username || "Participant",
+                                      recipientName: legalName,
                                       tournamentName: c.tournamentTitle,
                                       type: (c.type as "1st" | "runner_up" | "participation") ?? "1st",
                                       score: c.score,
-                                      total: c.total
+                                      total: c.total,
+                                      memberId: memberId ?? undefined,
+                                      ...(c.type === "participation"
+                                        ? {
+                                            siteName: SITE_NAME,
+                                            siteUrl: SITE_URL,
+                                            logoUrl: DEFAULT_OG_IMAGE_URL,
+                                            contextLine:
+                                              "For active participation and commitment in our competitive quiz program.",
+                                          }
+                                        : {}),
                                     })
                                   })
                                 }}
-                                className="px-5 py-2 rounded-xl bg-[#7c3aed] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/10 hover:bg-blue-600 transition-all"
+                                className="px-5 py-2 rounded-xl bg-[#7c3aed] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/10 hover:bg-blue-600 transition-all disabled:cursor-not-allowed disabled:opacity-40"
                               >
-                                Download PDF
+                                {!memberPaid ? "Members Only" : !legalName ? "Set Legal Name" : "Download PDF"}
                               </button>
                               <button
                                 type="button"
@@ -670,6 +890,7 @@ export default function Page() {
                         )
                       })}
                     </ul>
+                    </div>
                   )}
                 </div>
               </div>

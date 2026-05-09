@@ -13,8 +13,8 @@ export default function PageTransition({ children }: { children: ReactNode }) {
   }, [pathname])
 
   const transition = reduceMotion
-    ? { duration: 0.15, ease: [0.22, 1, 0.36, 1] as const }
-    : { type: "spring" as const, stiffness: 120, damping: 22, mass: 0.85 }
+    ? { duration: 0.1, ease: "linear" as const }
+    : { type: "spring" as const, stiffness: 350, damping: 30, mass: 0.5 }
 
   return (
     <motion.div
@@ -22,7 +22,7 @@ export default function PageTransition({ children }: { children: ReactNode }) {
       initial={
         reduceMotion
           ? { opacity: 0 }
-          : { opacity: 0, y: 18, scale: 0.988 }
+          : { opacity: 0, y: 8, scale: 0.995 }
       }
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={transition}

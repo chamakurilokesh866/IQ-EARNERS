@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getQuizById } from "@/lib/quizzes"
 import { getUserStats, setUserStats } from "@/lib/userStats"
 import { requirePaidUser } from "@/lib/auth"
+import { createQuizAttemptToken } from "@/lib/quizAttemptToken"
 
 /** POST: Apply quiz code to user when they click Start. Records that this user has started this quiz. */
 export async function POST(req: Request) {
@@ -20,15 +21,18 @@ export async function POST(req: Request) {
   const code = quiz.code ?? quizId
 
   try {
+    const attempt = createQuizAttemptToken(username, quizId)
     const existing = await getUserStats(username)
     const ok = await setUserStats(username, {
       ...existing,
       startedQuizId: quizId,
       startedQuizCode: code,
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      startedAttemptNonce: attempt.nonce,
+      startedAttemptExpiresAt: attempt.exp
     })
     if (!ok) return NextResponse.json({ ok: false, error: "Failed to save" }, { status: 500 })
-    return NextResponse.json({ ok: true, quizId, code }, { headers: { "Cache-Control": "private, no-store" } })
+    return NextResponse.json({ ok: true, quizId, code, attemptToken: attempt.token, attemptTokenExp: attempt.exp }, { headers: { "Cache-Control": "private, no-store" } })
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error)?.message ?? "Failed" }, { status: 500 })
   }

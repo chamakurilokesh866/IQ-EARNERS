@@ -14,6 +14,8 @@ export type BlockedUserEntry = { username: string; reason: string; blockedAt: nu
 export type SettingsData = Record<string, unknown> & {
   currency?: string
   entryFee?: number
+  /** Percent of each paid tournament entry recorded as platform fee in the money ledger (0–100). */
+  platformFeePercentTournament?: number
   targetAudience?: number
   progressBaseCount?: number
   timePerQuestion?: number
@@ -81,6 +83,14 @@ export type SettingsData = Record<string, unknown> & {
   }
   /** If true, developer options (right click, inspect, F12) are allowed globally */
   allowDeveloperOptions?: boolean
+  /** Enable or disable automatic proctoring high-risk alerts to admins. */
+  proctoringAlertsEnabled?: boolean
+  /** Cooldown in minutes between repeated proctoring alerts for same queue snapshot. */
+  proctoringAlertsCooldownMin?: number
+  /** If true, send admin push notifications for proctoring alerts. */
+  proctoringAlertsPush?: boolean
+  /** If true, send admin email notifications for proctoring alerts. */
+  proctoringAlertsEmail?: boolean
   /** Enterprise admin: orgs, API keys metadata, white-label, quiz mode flags, AI insights cache */
   enterpriseState?: EnterpriseState
 }
@@ -88,6 +98,7 @@ export type SettingsData = Record<string, unknown> & {
 const defaults: SettingsData = {
   currency: "INR",
   entryFee: 100,
+  platformFeePercentTournament: 15,
   targetAudience: 100,
   useResendEmails: false,
   aiQuestionLimit: 20,
@@ -98,7 +109,11 @@ const defaults: SettingsData = {
   creatorHubEnabled: true,
   languageSelectionEnabled: true,
   progressBaseCount: 0,
-  allowDeveloperOptions: false
+  allowDeveloperOptions: false,
+  proctoringAlertsEnabled: true,
+  proctoringAlertsCooldownMin: 30,
+  proctoringAlertsPush: true,
+  proctoringAlertsEmail: true
 }
 
 async function readFromFile(): Promise<SettingsData> {
@@ -123,6 +138,14 @@ export async function getSettings(): Promise<SettingsData> {
       const { data, error } = await supabase.from("settings").select("data").eq("id", "main").single()
       if (!error && data?.data) {
         const merged = { ...defaults, ...(data.data as object) }
+        if (!merged.enterpriseState) {
+          const { data: ent } = await supabase
+            .from("enterprise_state_store")
+            .select("data")
+            .eq("id", "main")
+            .maybeSingle()
+          if (ent?.data) merged.enterpriseState = ent.data as EnterpriseState
+        }
         if (!merged.upiId && !merged.upi_id && process.env.NEXT_PUBLIC_DEFAULT_UPI) {
           merged.upiId = process.env.NEXT_PUBLIC_DEFAULT_UPI
         }
@@ -147,6 +170,11 @@ export async function updateSettings(partial: Partial<SettingsData>): Promise<bo
       const { error } = await supabase
         .from("settings")
         .upsert({ id: "main", data: next, updated_at: Date.now() }, { onConflict: "id" })
+      if (!error && partial.enterpriseState) {
+        await supabase
+          .from("enterprise_state_store")
+          .upsert({ id: "main", data: partial.enterpriseState, updated_at: Date.now() }, { onConflict: "id" })
+      }
       return !error
     } catch {
       return false

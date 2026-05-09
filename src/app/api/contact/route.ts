@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email"
 import crypto from "crypto"
 import { validateOrigin } from "@/lib/auth"
 import { validateCsrf } from "@/lib/csrf"
+import { SUPPORT_EMAIL } from "@/lib/seo"
 
 // Rate limit map: IP -> { count, firstAt }
 const rateMap = new Map<string, { count: number; firstAt: number }>()
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
     }).catch(() => { })
 
     // ── Admin Notification ────────────────────────────────────
-    const adminEmail = process.env.ADMIN_USERNAME?.includes("@") ? process.env.ADMIN_USERNAME : "contact@iqearners.online"
+    const adminEmail = process.env.ADMIN_USERNAME?.includes("@") ? process.env.ADMIN_USERNAME : SUPPORT_EMAIL
     const adminHtml = getEmailTemplate({
       title: "IQ Earners Admin",
       subtitle: "New Support Inquiry",

@@ -6,12 +6,13 @@ import { fetchWithCsrf } from "@/lib/fetchWithCsrf"
 import { DEFAULT_COUNTRY } from "../utils/countries"
 import { UserIcon, MailIcon, SparklesIcon, CheckIcon, XIcon, AlertIcon, LockIcon } from "./AnimatedIcons"
 import { motion, AnimatePresence } from "framer-motion"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import ParentCompanyMark from "./ParentCompanyMark"
 
 const USERNAME_RULES = [
   { key: "special", label: "1 special (. _ - @)", test: (s: string) => /[._\-@]/.test(s) },
   { key: "number", label: "1 number", test: (s: string) => /\d/.test(s) },
   { key: "capital", label: "1 capital letter", test: (s: string) => /[A-Z]/.test(s) },
+  { key: "lowercase", label: "1 lowercase letter", test: (s: string) => /[a-z]/.test(s) },
   { key: "length", label: "6+ characters", test: (s: string) => s.length >= 6 }
 ]
 
@@ -42,13 +43,12 @@ type WizardStep = "email" | "otp" | "username" | "password"
 export default function UsernameSetForm({
   onSuccess,
   onSkip,
-  paymentProof,
   createUsernameToken,
   tournamentId
 }: {
   onSuccess?: (username: string) => void
   onSkip?: () => void
-  paymentProof?: { orderId?: string; paymentId?: string }
+  /** Signed token from /api/payment/create-username-token (required). */
   createUsernameToken?: string
   tournamentId?: string
 }) {
@@ -77,82 +77,126 @@ export default function UsernameSetForm({
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
   const otpVerifyLock = useRef(false)
 
-  const needsOtp = !!createUsernameToken
+  const secureToken = createUsernameToken?.trim() ?? ""
   const validUsernameRules = USERNAME_RULES.every((r) => r.test(username))
   const validUsername = validUsernameRules && usernameStatus === "available"
   const emailOkForContinue = validEmail(email) && emailStatus === "available"
   const passwordRulesOk = PASSWORD_RULES.every((r) => r.test(password))
   const passwordsMatch = password.length > 0 && password === confirmPassword
   const validPassword = passwordRulesOk && passwordsMatch
-  const submitEmail = needsOtp ? verifiedEmail : email.trim()
+  const submitEmail = verifiedEmail
 
-  const stepSequence: WizardStep[] = needsOtp ? ["email", "otp", "username", "password"] : ["email", "username", "password"]
+  const stepSequence: WizardStep[] = ["email", "otp", "username", "password"]
   const stepIndex = Math.max(0, stepSequence.indexOf(step))
 
-  const validUsernameRulesForCheck = USERNAME_RULES.every((r) => r.test(username))
+  const USERNAME_DEBOUNCE_MS = 70
+  const EMAIL_DEBOUNCE_MS = 90
+
   useEffect(() => {
-    if (!validUsernameRulesForCheck) {
+    const ac = new AbortController()
+    const u = username.trim()
+    if (u.length < 6) {
       setUsernameStatus("none")
-      return
+      setCheckingUsername(false)
+      return () => ac.abort()
     }
-    const check = async () => {
+
+    const timer = setTimeout(async () => {
       setCheckingUsername(true)
       try {
         const res = await fetch("/api/user/check-username", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: username.trim() })
+          body: JSON.stringify({ username: u }),
+          signal: ac.signal
         })
-        const j = await res.json()
-        if (j.ok) {
-          setUsernameStatus(j.available ? "available" : "taken")
+        const j = (await res.json()) as {
+          ok?: boolean
+          pending?: boolean
+          available?: boolean
+          error?: string
+          rulesPending?: boolean
         }
-      } catch {
-        /* ignore */
+        if (ac.signal.aborted) return
+        if (!j.ok) {
+          setUsernameStatus("none")
+          return
+        }
+        if (j.pending) {
+          setUsernameStatus("none")
+          return
+        }
+        if (j.available === false) {
+          setUsernameStatus(j.error === "invalid_format" ? "none" : "taken")
+          return
+        }
+        if (j.available === true) {
+          setUsernameStatus(j.rulesPending ? "none" : "available")
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return
       } finally {
-        setCheckingUsername(false)
+        if (!ac.signal.aborted) setCheckingUsername(false)
       }
+    }, USERNAME_DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      ac.abort()
     }
-    const timer = setTimeout(check, 450)
-    return () => clearTimeout(timer)
-  }, [username, validUsernameRulesForCheck])
+  }, [username])
 
   useEffect(() => {
+    const ac = new AbortController()
     if (!validEmail(email)) {
       setEmailStatus("none")
-      return
+      setCheckingEmail(false)
+      return () => ac.abort()
     }
-    const check = async () => {
+    const raw = email.trim()
+
+    const timer = setTimeout(async () => {
       setCheckingEmail(true)
       try {
         const res = await fetch("/api/user/check-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim() })
+          body: JSON.stringify({ email: raw }),
+          signal: ac.signal
         })
-        const j = await res.json()
-        if (j.ok) {
-          if (!j.available) {
-            if (j.error === "invalid_format") setEmailStatus("invalid")
-            else if (j.error === "temporary_email") setEmailStatus("temporary")
-            else if (j.error === "invalid_domain") setEmailStatus("invalid_domain")
-            else setEmailStatus("taken")
-          } else {
-            setEmailStatus("available")
-          }
+        const j = (await res.json()) as {
+          ok?: boolean
+          available?: boolean
+          error?: string
         }
-      } catch {
-        /* ignore */
+        if (ac.signal.aborted) return
+        if (!j.ok) {
+          setEmailStatus("none")
+          return
+        }
+        if (!j.available) {
+          if (j.error === "invalid_format") setEmailStatus("invalid")
+          else if (j.error === "temporary_email") setEmailStatus("temporary")
+          else if (j.error === "invalid_domain") setEmailStatus("invalid_domain")
+          else setEmailStatus("taken")
+        } else {
+          setEmailStatus("available")
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return
       } finally {
-        setCheckingEmail(false)
+        if (!ac.signal.aborted) setCheckingEmail(false)
       }
+    }, EMAIL_DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      ac.abort()
     }
-    const timer = setTimeout(check, 500)
-    return () => clearTimeout(timer)
   }, [email])
 
   const requestOtp = useCallback(async () => {
-    if (!createUsernameToken || !validEmail(email.trim())) return false
+    if (!secureToken || !validEmail(email.trim())) return false
     setOtpLoading(true)
     setOtpError(null)
     setOtpValue("")
@@ -163,7 +207,7 @@ export default function UsernameSetForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ createUsernameToken, email: email.trim() })
+        body: JSON.stringify({ createUsernameToken: secureToken, email: email.trim() })
       })
       const j = await res.json().catch(() => ({}))
       if (!j?.ok) throw new Error(j?.error ?? "Failed to send OTP")
@@ -178,7 +222,7 @@ export default function UsernameSetForm({
     } finally {
       setOtpLoading(false)
     }
-  }, [createUsernameToken, email])
+  }, [secureToken, email])
 
   useEffect(() => {
     if (!otpSentToEmail || otpVerified || otpLoading || otpRefreshSecs <= 0) return
@@ -189,7 +233,7 @@ export default function UsernameSetForm({
   }, [otpSentToEmail, otpVerified, otpLoading, otpRefreshSecs])
 
   const verifyOtpRequest = useCallback(async () => {
-    if (!createUsernameToken || !otpValue.trim() || otpVerifyLock.current || otpVerified) return
+    if (!secureToken || !otpValue.trim() || otpVerifyLock.current || otpVerified) return
     otpVerifyLock.current = true
     setOtpLoading(true)
     setOtpError(null)
@@ -198,7 +242,7 @@ export default function UsernameSetForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ createUsernameToken, otp: otpValue })
+        body: JSON.stringify({ createUsernameToken: secureToken, otp: otpValue })
       })
       const j = await res.json().catch(() => ({}))
       if (j?.ok) {
@@ -221,7 +265,7 @@ export default function UsernameSetForm({
       setOtpLoading(false)
       otpVerifyLock.current = false
     }
-  }, [createUsernameToken, otpValue, email, otpVerified])
+  }, [secureToken, otpValue, email, otpVerified])
 
   useEffect(() => {
     const digits = otpValue.replace(/\D/g, "")
@@ -282,19 +326,15 @@ export default function UsernameSetForm({
   const handleEmailContinue = useCallback(async () => {
     if (!emailOkForContinue || checkingEmail) return
     setError(null)
-    if (needsOtp) {
-      const ok = await requestOtp()
-      if (ok) setStep("otp")
-    } else {
-      setStep("username")
-    }
-  }, [emailOkForContinue, checkingEmail, needsOtp, requestOtp])
+    const ok = await requestOtp()
+    if (ok) setStep("otp")
+  }, [emailOkForContinue, checkingEmail, requestOtp])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (step !== "password") return
     if (!validUsername || !validPassword || !agreed || username.length > 20) return
-    if (needsOtp && (!otpVerified || !verifiedEmail)) {
+    if (!otpVerified || !verifiedEmail) {
       setError("Please complete email verification first.")
       return
     }
@@ -314,11 +354,7 @@ export default function UsernameSetForm({
           country,
           email: submitEmail,
           password,
-          ...(createUsernameToken
-            ? { createUsernameToken, otp: otpValue.replace(/\D/g, "") }
-            : paymentProof && (paymentProof.orderId || paymentProof.paymentId)
-              ? { paymentProof }
-              : {}),
+          createUsernameToken: secureToken,
           ...(tournamentId ? { tournamentId } : {})
         })
       })
@@ -346,6 +382,15 @@ export default function UsernameSetForm({
   const inputBorder = (ok: boolean, bad: boolean) =>
     ok ? "border-emerald-500/40" : bad ? "border-red-500/45" : "border-white/12"
 
+  if (!secureToken) {
+    return (
+      <div className="relative w-full max-w-xl mx-auto px-4 py-10 rounded-2xl border border-red-500/30 bg-red-500/10 text-center">
+        <p className="text-red-200 font-semibold">Invalid or missing payment session</p>
+        <p className="text-sm text-white/50 mt-2">Complete payment and use the link from the confirmation screen, or ask support if you already paid.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full max-w-xl mx-auto px-1 sm:px-0">
       <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900/90 to-black/90 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset] overflow-hidden">
@@ -356,8 +401,9 @@ export default function UsernameSetForm({
             </div>
             <div className="min-w-0">
               <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">Create your account</h3>
-              <p className="text-[10px] sm:text-xs uppercase font-bold tracking-[0.2em] text-cyan-400/70">
-                Secure enrollment · IQ Earners · {PARENT_COMPANY_NAME}
+              <p className="text-[10px] sm:text-xs font-bold text-cyan-400/70 flex flex-wrap items-center gap-x-1.5">
+                <span className="uppercase tracking-[0.2em]">Secure enrollment · IQ Earners ·</span>
+                <ParentCompanyMark className="text-[10px] sm:text-xs !normal-case" />
               </p>
             </div>
           </div>
@@ -397,7 +443,7 @@ export default function UsernameSetForm({
                 className="space-y-5"
               >
                 <p className="text-sm text-white/55 leading-relaxed">
-                  Enter the email you want on your account. We&apos;ll send a one-time code to verify it.
+                  Enter the email you want on your account. We will send a one-time code to verify it.
                 </p>
                 <div className="relative">
                   <MailIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -420,7 +466,9 @@ export default function UsernameSetForm({
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
                   )}
                 </div>
-                {emailStatus === "taken" && <p className="text-xs text-red-400 font-medium">This email is already registered.</p>}
+                {emailStatus === "taken" && (
+                  <p className="text-xs text-red-400 font-medium">Already used — sign in or use another email.</p>
+                )}
                 {emailStatus === "temporary" && <p className="text-xs text-red-400 font-medium">Disposable emails are not allowed.</p>}
                 {emailStatus === "invalid_domain" && <p className="text-xs text-red-400 font-medium">This email domain is not allowed.</p>}
 
@@ -430,13 +478,13 @@ export default function UsernameSetForm({
                   disabled={!emailOkForContinue || checkingEmail || otpLoading}
                   className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest bg-gradient-to-r from-cyan-500 to-primary text-black disabled:opacity-35 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] transition-all shadow-lg shadow-cyan-500/15"
                 >
-                  {otpLoading ? "Sending code…" : needsOtp ? "Send verification code" : "Continue"}
+                  {otpLoading ? "Sending code…" : "Send verification code"}
                 </button>
                 {otpError && step === "email" && <p className="text-xs text-red-400 text-center">{otpError}</p>}
               </motion.div>
             )}
 
-            {step === "otp" && needsOtp && (
+            {step === "otp" && (
               <motion.div
                 key="otp"
                 initial={{ opacity: 0, x: 16 }}
@@ -487,11 +535,14 @@ export default function UsernameSetForm({
                 )}
                 {otpError && !otpVerified && <p className="text-center text-sm text-red-400 font-medium">{otpError}</p>}
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <p className="text-[10px] text-center text-white/38 leading-relaxed">
+                  Didn&apos;t get the email? Check spam, then resend the code below.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
                   <button
                     type="button"
                     onClick={goEmailFromOtp}
-                    className="flex-1 py-3 rounded-xl border border-white/15 text-white/80 text-sm font-bold hover:bg-white/5"
+                    className="flex-1 py-2 rounded-xl border border-white/15 text-white/80 text-xs font-bold hover:bg-white/5"
                   >
                     Change email
                   </button>
@@ -501,7 +552,7 @@ export default function UsernameSetForm({
                       if (otpRefreshSecs <= 0) void requestOtp()
                     }}
                     disabled={otpLoading || otpRefreshSecs > 0}
-                    className="flex-1 py-3 rounded-xl border border-cyan-500/30 text-cyan-300 text-sm font-bold hover:bg-cyan-500/10 disabled:opacity-40"
+                    className="flex-1 py-2 rounded-xl border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/10 disabled:opacity-40"
                   >
                     {otpLoading ? "Sending…" : otpRefreshSecs > 0 ? `Resend in ${otpRefreshSecs}s` : "Resend code"}
                   </button>
@@ -519,7 +570,7 @@ export default function UsernameSetForm({
                 className="space-y-5"
               >
                 <p className="text-sm text-white/55">
-                  Pick a unique username. We check availability as you type.
+                  Pick a unique username — we check the database as you type (after 6 characters).
                 </p>
                 <div className="relative">
                   <UserIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -545,9 +596,9 @@ export default function UsernameSetForm({
                     <CheckIcon size={14} /> Username is available
                   </p>
                 )}
-                {usernameStatus === "taken" && validUsernameRules && (
+                {usernameStatus === "taken" && (
                   <p className="text-xs font-semibold text-red-400 flex items-center gap-2">
-                    <XIcon size={14} /> Already taken — try another
+                    <XIcon size={14} /> Already taken — choose another username.
                   </p>
                 )}
 
@@ -676,6 +727,7 @@ export default function UsernameSetForm({
                 </button>
               </motion.div>
             )}
+
           </AnimatePresence>
 
           {error && (

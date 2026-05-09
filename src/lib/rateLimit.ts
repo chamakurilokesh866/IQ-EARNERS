@@ -1,22 +1,22 @@
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
-import { headers } from "next/headers"
 
 /**
  * Rate limiter for API routes.
  * Uses Upstash Redis when UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set.
  * Falls back to in-memory store otherwise (single-instance only).
  *
- * Uses `headers()` from next/headers (not `request.headers`) so route handlers are not
- * misclassified as static during build / RSC analysis (avoids Dynamic server usage errors).
+ * Uses the incoming Request for client IP (avoids next/headers during static analysis / build).
  */
 
-async function getClientKey(prefix: string): Promise<string> {
-  const h = await headers()
-  const forwarded = h.get("x-forwarded-for")
-  const realIp = h.get("x-real-ip")
+function getClientKeyFromRequest(req: Request, prefix: string): string {
+  const forwarded = req.headers.get("x-forwarded-for")
+  const realIp = req.headers.get("x-real-ip")
   const ip = (forwarded?.split(",")[0]?.trim() || realIp || "unknown").slice(0, 64)
   return `${prefix}:${ip}`
+}
+function sanitizePart(v: string): string {
+  return v.trim().toLowerCase().replace(/[^a-z0-9:_-]/g, "").slice(0, 96) || "unknown"
 }
 
 export type RateLimitConfig = {
@@ -27,6 +27,7 @@ export type RateLimitConfig = {
 export const PRESETS: Record<string, RateLimitConfig> = {
   login: { windowMs: 60_000, max: 8 },
   adminLogin: { windowMs: 60_000, max: 5 },
+  orgLogin: { windowMs: 60_000, max: 6 },
   mockExamGenerate: { windowMs: 5 * 60_000, max: 6 },
   aiGenerate: { windowMs: 60_000, max: 15 },
   integrity: { windowMs: 60_000, max: 30 },
@@ -36,6 +37,7 @@ export const PRESETS: Record<string, RateLimitConfig> = {
   api: { windowMs: 60_000, max: 100 },
   security: { windowMs: 60_000, max: 15 },
   checkUsername: { windowMs: 60_000, max: 30 },
+  checkEmail: { windowMs: 60_000, max: 40 },
   createUsernameRequestOtp: { windowMs: 15 * 60_000, max: 5 },
   createUsernameVerifyOtp: { windowMs: 5 * 60_000, max: 10 },
   forgotPasswordRequest: { windowMs: 15 * 60_000, max: 3 },
@@ -43,7 +45,6 @@ export const PRESETS: Record<string, RateLimitConfig> = {
   forgotPasswordReset: { windowMs: 15 * 60_000, max: 5 },
 }
 
-// ── In-memory fallback (used if Redis is unavailable) ──────────────────────
 const store = new Map<string, { count: number; resetAt: number }>()
 const CLEANUP_INTERVAL_MS = 60_000
 let lastCleanup = Date.now()
@@ -57,12 +58,12 @@ function cleanup() {
   }
 }
 
-async function rateLimitMemory(
+async function rateLimitMemoryByKey(
+  key: string,
   preset: keyof typeof PRESETS
 ): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
   cleanup()
   const config = PRESETS[preset] ?? PRESETS.api
-  const key = await getClientKey(preset)
   const now = Date.now()
   const entry = store.get(key)
 
@@ -83,8 +84,13 @@ async function rateLimitMemory(
   entry.count++
   return { ok: true }
 }
+async function rateLimitMemory(
+  req: Request,
+  preset: keyof typeof PRESETS
+): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
+  return rateLimitMemoryByKey(getClientKeyFromRequest(req, preset), preset)
+}
 
-// ── Upstash Redis Initialization ───────────────────────────────────────────
 type LimiterInstance = { limit: (id: string) => Promise<{ success: boolean; reset: number; remaining: number }> }
 let globalRedisClient: Redis | null = null
 let redisLimiters: Record<string, LimiterInstance> | null = null
@@ -108,48 +114,65 @@ function getRedisLimiters(): Record<string, LimiterInstance> | null {
         redis: globalRedisClient,
         limiter: Ratelimit.fixedWindow(cfg.max, `${windowSec} s`),
         prefix: `rl:${name}`,
-        ephemeralCache: new Map(), // optimize performance
+        ephemeralCache: new Map(),
       })
     }
     redisLimiters = limiters
     return limiters
-  } catch (err) {
-    console.error("[rateLimit] Redis init failed:", err)
+  } catch {
     return null
   }
 }
 
-async function rateLimitRedis(
+async function rateLimitRedisByKey(
+  key: string,
   preset: keyof typeof PRESETS
 ): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
   const limiters = getRedisLimiters()
-  if (!limiters) return rateLimitMemory(preset)
+  if (!limiters) return rateLimitMemoryByKey(key, preset)
 
   try {
     const limiter = limiters[preset] ?? limiters.api
-    if (!limiter) return rateLimitMemory(preset)
+    if (!limiter) return rateLimitMemoryByKey(key, preset)
 
-    const id = await getClientKey(preset)
-    const result = await limiter.limit(id)
+    const result = await limiter.limit(key)
 
     if (result.success) return { ok: true }
     const retryAfter = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))
     return { ok: false, retryAfter }
-  } catch (err) {
-    console.error("[rateLimit] Redis operation failed:", err)
-    return rateLimitMemory(preset)
+  } catch {
+    return rateLimitMemoryByKey(key, preset)
   }
 }
+async function rateLimitRedis(
+  req: Request,
+  preset: keyof typeof PRESETS
+): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
+  return rateLimitRedisByKey(getClientKeyFromRequest(req, preset), preset)
+}
 
-// ── Public API ──────────────────────────────────────────────────────────────
 export async function rateLimit(
-  _req: Request,
+  req: Request,
   preset: keyof typeof PRESETS = "api"
 ): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
-  // Use Redis strictly in production if configured
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    return rateLimitRedis(preset)
+    return rateLimitRedis(req, preset)
   }
-  // Otherwise default to memory (works for dev / single-instance deployments)
-  return rateLimitMemory(preset)
+  return rateLimitMemory(req, preset)
+}
+
+/** Apply both IP limiter and optional account limiter for sensitive auth/payment routes. */
+export async function rateLimitByAccount(
+  req: Request,
+  preset: keyof typeof PRESETS,
+  accountKey?: string
+): Promise<{ ok: true } | { ok: false; retryAfter: number }> {
+  const ipKey = getClientKeyFromRequest(req, preset)
+  const acct = sanitizePart(accountKey || "")
+  const accountScopedKey = `${preset}:acct:${acct}`
+  const useRedis = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  const ipResult = useRedis ? await rateLimitRedisByKey(ipKey, preset) : await rateLimitMemoryByKey(ipKey, preset)
+  if (!ipResult.ok) return ipResult
+  if (!accountKey?.trim()) return { ok: true }
+  return useRedis ? rateLimitRedisByKey(accountScopedKey, preset) : rateLimitMemoryByKey(accountScopedKey, preset)
 }

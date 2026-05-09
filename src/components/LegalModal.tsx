@@ -1,7 +1,7 @@
 "use client"
 
 import { useModalA11y } from "@/hooks/useModalA11y"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import ParentCompanyMark from "./ParentCompanyMark"
 
 type DocType = "terms" | "privacy" | "rules" | "grievance" | "refund" | "disclaimer" | "cookie"
 
@@ -11,7 +11,7 @@ const DOCS: Record<DocType, { title: string; subtitle?: string; content: React.R
     subtitle: "Last updated: February 2026. Governed by Indian law.",
     content: (
       <div className="space-y-4 text-sm text-navy-300">
-        <section><h3 className="font-semibold text-primary">Corporate</h3><p className="mt-1">IQ Earners is offered under the parent company {PARENT_COMPANY_NAME}.</p></section>
+        <section><h3 className="font-semibold text-primary">Corporate</h3><p className="mt-1 flex flex-wrap items-center gap-x-1.5">IQ Earners is offered under the parent company <ParentCompanyMark /></p></section>
         <section><h3 className="font-semibold text-primary">1. Acceptance</h3><p className="mt-1">By accessing IQ Earners, you agree to these Terms, our Privacy Policy, Rules & Regulations, and applicable Indian laws including the IT Act, 2000 and the Digital Personal Data Protection Act, 2023.</p></section>
         <section><h3 className="font-semibold">2. Eligibility</h3><p className="mt-1">You must be 18+ and legally capable. One account per person. Fair play mandatory.</p></section>
         <section><h3 className="font-semibold">3. Prizes & Payments</h3><p className="mt-1">Subject to verification. RBI guidelines apply. Refunds per our Refund Policy.</p></section>
@@ -25,7 +25,7 @@ const DOCS: Record<DocType, { title: string; subtitle?: string; content: React.R
     subtitle: "Compliant with DPDP Act, 2023 & IT Act.",
     content: (
       <div className="space-y-4 text-sm text-navy-300">
-        <section><h3 className="font-semibold text-primary">Corporate</h3><p className="mt-1">IQ Earners is part of {PARENT_COMPANY_NAME}. References to &quot;we&quot; or &quot;us&quot; include the platform and its parent company where applicable.</p></section>
+        <section><h3 className="font-semibold text-primary">Corporate</h3><p className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1">IQ Earners is part of <ParentCompanyMark />. References to &quot;we&quot; or &quot;us&quot; include the platform and its parent company where applicable.</p></section>
         <section><h3 className="font-semibold text-primary">1. Data Fiduciary</h3><p className="mt-1">IQ Earners processes data per Digital Personal Data Protection Act, 2023.</p></section>
         <section><h3 className="font-semibold">2. Data Collected</h3><p className="mt-1">Username, quiz performance, session data. Payment details not stored on our servers.</p></section>
         <section><h3 className="font-semibold">3. Your Rights (DPDP Act)</h3><p className="mt-1">Access, correct, erase, withdraw consent. Contact iqearnersteam@gmail.com.</p></section>

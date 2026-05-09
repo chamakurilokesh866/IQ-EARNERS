@@ -1,68 +1,44 @@
 import { NextResponse } from "next/server"
-import crypto from "crypto"
 import { promises as fs } from "fs"
 import path from "path"
 import { findPayment, updatePayment, addPayment } from "@/lib/payments"
-import { getLeaderboard, upsertByName } from "@/lib/leaderboard"
+import { recordTournamentEntryLedgerIfNeeded } from "@/lib/moneyLedger"
+import { unblockUser } from "@/lib/blocked"
+import { recordUnblocked } from "@/lib/unblocked"
+import { clearBlockedFlagsInUserStats } from "@/lib/userStats"
+import { upsertByName } from "@/lib/leaderboard"
 import { addEnrollment, isEnrolled } from "@/lib/enrollments"
 import { generateEnrollmentCode } from "@/lib/enrollmentCode"
-
-/**
- * Verify Cashfree webhook signature.
- * Cashfree uses: Base64(HMACSHA256(timestamp + rawBody, secretKey))
- * Headers: x-webhook-signature, x-webhook-timestamp
- */
-function verifyCashfreeSignature(
-  rawBody: string,
-  signature: string | null,
-  timestamp: string | null,
-  secretKey: string
-): boolean {
-  if (!signature || !timestamp || !secretKey) return false
-  try {
-    const signedPayload = timestamp + rawBody
-    const expected = crypto
-      .createHmac("sha256", secretKey)
-      .update(signedPayload)
-      .digest("base64")
-    try {
-      const sigBuf = Buffer.from(signature)
-      const expBuf = Buffer.from(expected)
-      if (sigBuf.length !== expBuf.length) return false
-      return crypto.timingSafeEqual(sigBuf, expBuf)
-    } catch {
-      return false
-    }
-  } catch {
-    return false
-  }
-}
+import { verifyCashfreeWebhookSignature, isCashfreeWebhookTimestampFresh } from "@/lib/cashfreeWebhookSecurity"
+import { appendSecurityEvent } from "@/lib/securityEventLog"
+import { getClientIp } from "@/lib/inspectSecurity"
+import { buildWebhookIdempotencyKey, markWebhookEventSeen } from "@/lib/webhookIdempotency"
 
 export async function POST(req: Request) {
   const raw = await req.text()
-  let payload: any = {}
+  let payload: Record<string, unknown> = {}
   try {
-    payload = JSON.parse(raw)
+    payload = JSON.parse(raw) as Record<string, unknown>
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 })
   }
 
-  // Handle Cashfree dashboard test/validation request – return 200 so "Add Webhook" passes
+  const dataOrder = payload?.data as Record<string, unknown> | undefined
+  const orderNested = dataOrder?.order as Record<string, unknown> | undefined
+  const eventObject = dataOrder?.object as Record<string, unknown> | undefined
+  const orderId =
+    (orderNested?.order_id as string | undefined) ??
+    (payload?.order_id as string | undefined) ??
+    (payload?.orderId as string | undefined)
+  const hasPaymentData = Boolean(orderId || orderNested)
   const isTest =
     payload?.type === "TEST" ||
     payload?.event_type === "TEST" ||
     payload?.event === "webhook.test" ||
-    (payload?.data?.object?.object === "event" && payload?.data?.object?.type === "test")
-  if (isTest) {
-    return NextResponse.json({ received: true })
-  }
+    (eventObject?.object === "event" && eventObject?.type === "test")
 
-  // If no payment-related data, treat as validation ping and return 200
-  const orderId = payload?.data?.order?.order_id ?? payload?.order_id ?? payload?.orderId
-  const hasPaymentData = !!orderId || !!payload?.data?.order
-  if (!hasPaymentData && typeof payload === "object" && Object.keys(payload).length <= 3) {
-    return NextResponse.json({ received: true })
-  }
+  const keyCount = typeof payload === "object" && payload ? Object.keys(payload).length : 0
+  const isTinyPing = !hasPaymentData && !isTest && keyCount <= 3
 
   const secretKey = process.env.CASHFREE_SECRET_KEY ?? ""
   const webhookSig = req.headers.get("x-webhook-signature")
@@ -72,15 +48,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Webhook not configured (set CASHFREE_SECRET_KEY)" }, { status: 500 })
   }
 
-  if (!verifyCashfreeSignature(raw, webhookSig, webhookTs, secretKey)) {
+  if (isTinyPing) {
+    return NextResponse.json({ received: true })
+  }
+
+  if (!verifyCashfreeWebhookSignature(raw, webhookSig, webhookTs, secretKey)) {
+    const ip = getClientIp(req)
+    await appendSecurityEvent({ type: "webhook_invalid_signature", ip, path: "/api/payments/webhook" })
     return NextResponse.json({ ok: false, error: "Invalid signature" }, { status: 401 })
   }
 
-  // Cashfree PAYMENT_SUCCESS_WEBHOOK format (2023-08-01 + 2025-01-01)
+  if (!isCashfreeWebhookTimestampFresh(webhookTs)) {
+    const ip = getClientIp(req)
+    await appendSecurityEvent({ type: "webhook_replay", ip, path: "/api/payments/webhook", detail: { reason: "timestamp_skew" } })
+    return NextResponse.json({ ok: false, error: "Stale timestamp" }, { status: 401 })
+  }
+  const eventKey = buildWebhookIdempotencyKey("/api/payments/webhook", raw, webhookTs)
+  if (!markWebhookEventSeen(eventKey)) {
+    return NextResponse.json({ ok: true, message: "Duplicate ignored" })
+  }
+
+  if (isTest) {
+    return NextResponse.json({ received: true })
+  }
+
   const paymentStatus =
-    payload?.data?.payment?.payment_status ??
-    payload?.data?.order?.order_status ??
-    payload?.data?.order?.transaction_status ??
+    (dataOrder?.payment as Record<string, unknown> | undefined)?.payment_status ??
+    orderNested?.order_status ??
+    orderNested?.transaction_status ??
     payload?.payment_status ??
     payload?.status
   const type = payload?.type ?? payload?.event_type
@@ -95,7 +90,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, message: "Event ignored" })
   }
 
-  const orderAmount = payload?.data?.order?.order_amount ?? payload?.data?.payment?.payment_amount ?? payload?.order_amount ?? 0
+  const orderAmount =
+    (orderNested?.order_amount as number | undefined) ??
+    ((dataOrder?.payment as Record<string, unknown> | undefined)?.payment_amount as number | undefined) ??
+    (payload?.order_amount as number | undefined) ??
+    0
 
   let payment = await findPayment({ orderId })
   if (payment) {
@@ -103,7 +102,6 @@ export async function POST(req: Request) {
       await updatePayment(payment.id, { status: "success", confirmed_at: Date.now() })
     }
   } else {
-    // Payment Forms create orders in Cashfree – we don't have the record yet; create it
     const entry = {
       id: `cf_${orderId.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
       orderId,
@@ -119,10 +117,10 @@ export async function POST(req: Request) {
     await addPayment(entry)
   }
 
-  // Enroll user in tournament when payment is tournament_entry with tournamentId + username in meta
   payment = await findPayment({ orderId })
-  const tournamentId = (payment?.meta as any)?.tournamentId
-  const username = (payment?.meta as any)?.username ?? (payment?.meta as any)?.name ?? ""
+  const meta = (payment?.meta ?? {}) as Record<string, unknown>
+  const tournamentId = meta.tournamentId as string | undefined
+  const username = (meta.username ?? meta.name ?? "") as string
   if (payment?.type === "tournament_entry" && tournamentId && username) {
     try {
       const PARTICIPANTS = path.join(process.cwd(), "src", "data", "participants.json")
@@ -137,8 +135,8 @@ export async function POST(req: Request) {
       }
       await upsertByName({ name: username, score: 0, tournamentId })
       const ptxt = await fs.readFile(PARTICIPANTS, "utf-8").catch(() => "[]")
-      const participants: any[] = JSON.parse(ptxt || "[]")
-      if (!participants.some((p: any) => String(p?.name ?? "").toLowerCase() === username.toLowerCase())) {
+      const participants: Array<Record<string, unknown>> = JSON.parse(ptxt || "[]")
+      if (!participants.some((p) => String(p?.name ?? "").toLowerCase() === username.toLowerCase())) {
         participants.push({
           id: String(Date.now()),
           name: username,
@@ -149,6 +147,29 @@ export async function POST(req: Request) {
       }
     } catch (e) {
       console.error("[webhook] tournament enrollment error:", e)
+    }
+  }
+
+  payment = await findPayment({ orderId })
+  if (payment?.type === "unblock" && payment.status === "success") {
+    const meta = (payment.meta ?? {}) as Record<string, unknown>
+    const unblockFor = String(meta.unblockFor ?? meta.unblock_username ?? meta.name ?? meta.username ?? "").trim()
+    if (unblockFor) {
+      const now = Date.now()
+      try {
+        await Promise.all([unblockUser(unblockFor), recordUnblocked(unblockFor, now), clearBlockedFlagsInUserStats(unblockFor)])
+      } catch (e) {
+        console.error("[webhook] unblock error:", e)
+      }
+    }
+  }
+
+  payment = await findPayment({ orderId })
+  if (payment?.status === "success") {
+    try {
+      await recordTournamentEntryLedgerIfNeeded(payment)
+    } catch (e) {
+      console.error("[webhook] money ledger error:", e)
     }
   }
 

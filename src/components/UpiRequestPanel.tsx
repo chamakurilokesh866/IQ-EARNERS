@@ -106,7 +106,12 @@ export default function UpiRequestPanel() {
     setLoading(true)
     setError("")
     try {
-      const r = await fetch("/api/admin/reset", { method: "POST" })
+      const r = await fetch("/api/admin/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ confirm: "RESET_PRIZE_ROUND", mode: "round" }),
+      })
       const j = await r.json().catch(() => ({}))
       if (j?.ok) {
         load()

@@ -25,9 +25,9 @@ function getPageLabel(path: string): string {
   return PAGE_LABELS[path] ?? path.split("/").filter(Boolean).pop() ?? "Page"
 }
 
-const SETTLING_MS = 30
-const MAX_WAIT_MS = 2500
-const SLOW_NAV_MS = 1200 // Show slow warning after 1.2s
+const SETTLING_MS = 10
+const MAX_WAIT_MS = 2000
+const SLOW_NAV_MS = 1000 // Show slow warning after 1s
 
 export default function TransitionLoader() {
   const pathname = usePathname()
@@ -81,109 +81,72 @@ export default function TransitionLoader() {
 
   if (!show) return null
 
-  return (
-    <div className="fixed inset-0 z-[99] flex items-center justify-center bg-black/95 backdrop-blur-xl overflow-hidden portal-wipe-in">
-      {/* Animated background grid */}
-      <div className="absolute inset-0 holo-grid-bg opacity-30" />
-
-      {/* Floating portal orbs */}
-      <div className="absolute top-1/4 left-1/4 w-40 h-40 rounded-full bg-primary/10 blur-3xl redirect-orb-float" style={{ animationDelay: "0s" }} />
-      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-purple-500/10 blur-3xl redirect-orb-float" style={{ animationDelay: "0.5s" }} />
-      <div className="absolute top-1/2 right-1/3 w-28 h-28 rounded-full bg-cyan-400/8 blur-2xl redirect-orb-float" style={{ animationDelay: "1s" }} />
-
-      {/* Spinning outer ring */}
-      <div className="absolute w-[200px] h-[200px] rounded-full border border-primary/20 portal-spin-ring" />
-      <div className="absolute w-[240px] h-[240px] rounded-full border border-primary/10 portal-spin-ring" style={{ animationDirection: "reverse", animationDuration: "5s" }} />
-
-      {/* Portal ring expansion */}
-      <div className="absolute w-16 h-16 rounded-full border-2 border-primary/40 portal-ring-expand" />
-      <div className="absolute w-16 h-16 rounded-full border-2 border-cyan-400/30 portal-ring-expand" style={{ animationDelay: "0.3s" }} />
-
-      {/* Particle burst */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        {[...Array(8)].map((_, i) => (
-          <span key={i} className="portal-particle" />
-        ))}
+  return <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#020205]/95 backdrop-blur-2xl overflow-hidden portal-wipe-in">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 blur-[150px] animate-pulse" />
+        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent animate-[nebula-scan_2s_linear_infinite]" />
       </div>
 
-      {/* Orbiting dots */}
-      <div className="absolute w-2 h-2 rounded-full bg-primary portal-dot-orbit" />
-      <div className="absolute w-1.5 h-1.5 rounded-full bg-cyan-400 portal-dot-orbit" style={{ animationDelay: "0.5s", animationDuration: "2s" }} />
-      <div className="absolute w-1 h-1 rounded-full bg-purple-400 portal-dot-orbit" style={{ animationDelay: "1s", animationDuration: "2.5s" }} />
+      {/* Warp Elements */}
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden pointer-events-none opacity-20">
+        <div className="h-0.5 w-[300vw] bg-gradient-to-r from-transparent via-primary/50 to-transparent animate-[moneyFlow_1.5s_infinite_linear]" style={{ transform: 'translateX(-50%)' }} />
+        <div className="h-0.5 w-[300vw] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent animate-[moneyFlow_2s_infinite_linear] mt-2" style={{ transform: 'translateX(-50%)' }} />
+      </div>
 
-      <div className="relative flex flex-col items-center gap-6 redirect-content-enter">
-        {/* From / To cards with portal glow */}
-        <div className="flex items-center gap-4">
-          <div className="portal-label-slide rounded-xl bg-white/5 border border-white/10 px-5 py-3 min-w-[120px] text-center backdrop-blur-sm relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
-            <div className="relative">
-              <div className="text-[10px] text-white/40 uppercase tracking-[0.2em] font-medium">From</div>
-              <div className="mt-1 font-bold text-white text-sm">{fromLabel}</div>
-            </div>
-          </div>
+      <div className="relative flex flex-col items-center gap-12 redirect-content-enter scale-90 sm:scale-100">
+        {/* Core Icon Assembly */}
+        <div className="relative flex items-center justify-center gap-6">
+           <div className="w-20 h-20 rounded-[2rem] bg-white/5 border border-white/10 flex flex-col items-center justify-center p-2 backdrop-blur-xl relative group">
+              <div className="text-[8px] font-black uppercase text-white/30 tracking-widest leading-none mb-1">Departure</div>
+              <div className="text-white font-black text-xs uppercase truncate max-w-full italic">{fromLabel}</div>
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-primary rounded-full group-hover:w-8 transition-all" />
+           </div>
 
-          <div className="flex flex-col items-center gap-1">
-            {/* Animated arrow with data stream effect */}
-            <div className="relative w-12 overflow-hidden">
-              <div className="absolute inset-0 rounded-full vortex-energy-beam opacity-40" style={{ height: "2px", top: "50%", marginTop: "-1px" }} />
-              <span className="relative text-2xl text-primary font-bold redirect-arrow-pulse block text-center" aria-hidden>→</span>
-            </div>
-            <span className="text-[9px] text-white/30 uppercase tracking-widest font-medium">warp</span>
-          </div>
+           <div className="flex flex-col items-center gap-1">
+              <div className="w-16 h-px bg-gradient-to-r from-primary to-cyan-400 relative overflow-hidden">
+                 <div className="absolute inset-0 bg-white translate-x-[-100%] animate-[moneyFlow_1s_infinite_linear]" />
+              </div>
+              <span className="text-[10px] font-black text-primary animate-pulse tracking-widest uppercase">Warping</span>
+           </div>
 
-          <div className="portal-label-slide rounded-xl bg-primary/10 border border-primary/30 px-5 py-3 min-w-[120px] text-center backdrop-blur-sm relative overflow-hidden portal-glow-pulse" style={{ animationDelay: "0.15s" }}>
-            <div className="absolute inset-0 bg-gradient-to-l from-primary/10 to-transparent" />
-            <div className="relative">
-              <div className="text-[10px] text-primary/70 uppercase tracking-[0.2em] font-medium">To</div>
-              <div className="mt-1 font-bold text-primary text-sm">{toLabel}</div>
-            </div>
-          </div>
+           <div className="w-24 h-24 rounded-[2.5rem] bg-primary/20 border border-primary/40 flex flex-col items-center justify-center p-2 backdrop-blur-xl relative shadow-[0_0_50px_rgba(139,92,246,0.3)] animate-pulse">
+              <div className="text-[8px] font-black uppercase text-primary tracking-widest leading-none mb-1">Arrival</div>
+              <div className="text-white font-black text-sm uppercase truncate max-w-full italic tracking-tighter">{toLabel}</div>
+           </div>
         </div>
 
-        {/* Status text with typewriter dots */}
-        <div className="flex flex-col items-center gap-2">
+        {/* Status Copy */}
+        <div className="flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-white/50 uppercase tracking-widest">
-              {toLabel === "Intro" ? "Logging Out" : isSlow ? "Waiting for Data" : "Warping"}
-            </span>
-            <span className="flex gap-1.5">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className={`w-2 h-2 rounded-full redirect-dot-bounce ${isSlow ? 'bg-amber-400' : 'bg-primary/80'}`} style={{ animationDelay: `${i * 0.15}s` }} />
-              ))}
-            </span>
+             <span className="w-1 h-1 rounded-full bg-cyan-400 animate-ping" />
+             <span className="text-[10px] font-black uppercase tracking-[0.6em] text-white/50">
+                {isSlow ? "Adapting Synchronisation" : "Reconfiguring Terminal"}
+             </span>
+             <span className="w-1 h-1 rounded-full bg-primary animate-ping" style={{ animationDelay: '0.2s' }} />
           </div>
+          
+          <div className="w-64 h-[2px] bg-white/5 rounded-full overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary via-cyan-400 to-primary w-full animate-[moneyFlow_1.5s_infinite_linear]" />
+          </div>
+
           {isSlow && (
-            <div className="text-[10px] text-amber-400/60 font-bold uppercase tracking-widest animate-pulse">
-              Poor Network Detected
+            <div className="text-[9px] font-bold text-amber-400/60 uppercase tracking-[0.2em] animate-pulse">
+              Temporal instability detected — resolving data stream
             </div>
           )}
         </div>
 
-        {/* Glowing progress bar */}
-        <div className="w-56 h-2 rounded-full bg-white/5 overflow-hidden border border-white/10">
-          <div className="h-full rounded-full bg-gradient-to-r from-primary via-cyan-400 to-primary portal-progress-glow" />
-        </div>
-
-        {/* Logo with glow */}
-        <div className="rounded-full p-2.5 bg-white/5 border border-white/10 redirect-logo-enter relative">
-          <div className="absolute inset-0 rounded-full bg-primary/10 blur-xl" />
-          <Image src={logoPng} alt="IQ Earners" className="h-12 w-12 rounded-full object-contain relative z-10" />
+        {/* Iconic Logo Glow */}
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-[-10px] bg-primary/20 blur-xl rounded-full animate-pulse" />
+          <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/20 p-1 bg-black/50 backdrop-blur-xl">
+             <Image src={logoPng} alt="IQ" width={64} height={64} className="w-full h-full object-cover rounded-xl opacity-80" />
+          </div>
         </div>
       </div>
 
-      {/* Data stream columns (cyberpunk effect) */}
-      <div className="absolute left-[10%] top-0 bottom-0 w-px overflow-hidden opacity-20">
-        <div className="w-full h-8 bg-gradient-to-b from-transparent via-primary to-transparent portal-data-stream" />
-      </div>
-      <div className="absolute left-[90%] top-0 bottom-0 w-px overflow-hidden opacity-15">
-        <div className="w-full h-12 bg-gradient-to-b from-transparent via-cyan-400 to-transparent portal-data-stream" style={{ animationDelay: "0.6s" }} />
-      </div>
-      <div className="absolute left-[30%] top-0 bottom-0 w-px overflow-hidden opacity-10">
-        <div className="w-full h-6 bg-gradient-to-b from-transparent via-purple-400 to-transparent portal-data-stream" style={{ animationDelay: "0.3s" }} />
-      </div>
-      <div className="absolute left-[70%] top-0 bottom-0 w-px overflow-hidden opacity-10">
-        <div className="w-full h-10 bg-gradient-to-b from-transparent via-primary to-transparent portal-data-stream" style={{ animationDelay: "0.9s" }} />
-      </div>
+      {/* Cyberpunk Grid */}
+      <div className="absolute inset-0 h-full w-full pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
     </div>
-  )
 }

@@ -3,13 +3,15 @@
 import { usePathname } from "next/navigation"
 import { useReport } from "@/context/ReportContext"
 import { useQuizFullscreen } from "@/context/QuizFullscreenContext"
-
+import { isMoreHubOrApiGuidePath } from "@/lib/moreDocsPaths"
 
 export default function ReportButton() {
   const pathname = usePathname() ?? ""
   const { openReport } = useReport()
   const { isActive: quizFullscreenActive } = useQuizFullscreen()
   if (quizFullscreenActive) return null
+  if (pathname === "/org" || pathname.startsWith("/org/")) return null
+  if (isMoreHubOrApiGuidePath(pathname)) return null
 
   const bottomDesktop = "lg:bottom-12 lg:right-12"
 

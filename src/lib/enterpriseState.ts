@@ -26,6 +26,22 @@ export type EnterpriseOrg = {
   primaryColor?: string
   accentColor?: string
   tagline?: string
+  /** Secret segment for org login URLs: /org/{slug}/portal/{portalCode}/login (set on create + migration). */
+  portalCode?: string
+  /** Admin override: max members (null/undefined = use plan template). Use -1 for unlimited. */
+  maxUsersOverride?: number | null
+  /** Admin override: max quizzes (null/undefined = use plan). Use -1 for unlimited. */
+  maxQuizzesOverride?: number | null
+  /** B2B billing (India GST, invoicing). Optional; set from platform admin. */
+  legalName?: string
+  gstin?: string
+  billingAddressLine?: string
+  billingCity?: string
+  billingState?: string
+  billingPostalCode?: string
+  /** INR — annual contract value for internal CRM / renewals (not invoicing automation). */
+  annualContractValueInr?: number
+  billingNotes?: string
 }
 
 export type OrgMember = {
@@ -35,6 +51,8 @@ export type OrgMember = {
   displayName: string
   email?: string
   passwordHash: string
+  mustChangePassword?: boolean
+  profile?: Record<string, unknown>
   role: "owner" | "admin" | "teacher" | "student"
   active: boolean
   joinedAt: string
@@ -48,6 +66,7 @@ export type OrgQuiz = {
   orgId: string
   title: string
   description?: string
+  quizType?: "practice" | "exam" | "speed" | "revision" | "assignment" | "current_affairs"
   category: string
   difficulty: "Easy" | "Medium" | "Hard"
   questions: OrgQuizQuestion[]
@@ -56,6 +75,8 @@ export type OrgQuiz = {
   published: boolean
   timePerQuestion?: number
   scheduledAt?: string
+  archived?: boolean
+  archivedAt?: string
 }
 
 export type OrgQuizQuestion = {
@@ -76,6 +97,41 @@ export type OrgQuizAttempt = {
   timeSeconds: number
   completedAt: string
   answers: number[]
+}
+
+export type OrgAuditEvent = {
+  id: string
+  orgId: string
+  actorMemberId: string
+  actorName: string
+  action: string
+  targetType: "quiz" | "member" | "attempt" | "integrity" | "organization"
+  targetId?: string
+  detail?: string
+  createdAt: string
+}
+
+export type OrgNotification = {
+  id: string
+  orgId: string
+  type: "integrity" | "result" | "quiz" | "system"
+  title: string
+  message: string
+  createdAt: string
+  read?: boolean
+}
+
+export type OrgIntegrityEvent = {
+  id: string
+  orgId: string
+  quizId?: string
+  memberId: string
+  memberName: string
+  username: string
+  type: "tab_hidden" | "window_blur" | "fullscreen_exit" | "other"
+  message: string
+  meta?: Record<string, unknown>
+  createdAt: string
 }
 
 export type OrgLeaderboardEntry = {
@@ -183,6 +239,9 @@ export type EnterpriseState = {
   orgMembers: Record<string, OrgMember[]>
   orgQuizzes: Record<string, OrgQuiz[]>
   orgAttempts: Record<string, OrgQuizAttempt[]>
+  orgIntegrityEvents: Record<string, OrgIntegrityEvent[]>
+  orgAudit: Record<string, OrgAuditEvent[]>
+  orgNotifications: Record<string, OrgNotification[]>
   plans: EnterprisePlan[]
   subscriptions: EnterpriseSubscription[]
   apiKeys: StoredApiKey[]
@@ -301,6 +360,9 @@ export function defaultEnterpriseState(): EnterpriseState {
     orgMembers: {},
     orgQuizzes: {},
     orgAttempts: {},
+    orgIntegrityEvents: {},
+    orgAudit: {},
+    orgNotifications: {},
     plans: JSON.parse(JSON.stringify(DEFAULT_PLANS)) as EnterprisePlan[],
     subscriptions: [],
     apiKeys: [],

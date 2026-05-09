@@ -4,7 +4,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import logoPng from "../app/prizes/icon.png"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import { PARENT_COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/seo"
 
 const PAGES: { left: string; right: string }[] = [
   {
@@ -33,7 +33,7 @@ const PAGES: { left: string; right: string }[] = [
   },
   {
     left: "Grievance & Refund",
-    right: "• Grievance: Contact us via Profile → Contact Us or email contact@iqearners.online. Our officer resolves issues within 15 days.\n• Refund: Entry fees are non-refundable once the tournament starts or access is granted. Exceptions made for technical errors."
+    right: `• Grievance: Contact us via Profile → Contact Us or email ${SUPPORT_EMAIL}. Our officer resolves issues within 15 days.\n• Refund: Entry fees are non-refundable once the tournament starts or access is granted. Exceptions made for technical errors.`
   },
   {
     left: "Cookies & Data",
@@ -41,7 +41,7 @@ const PAGES: { left: string; right: string }[] = [
   },
   {
     left: "Legal & Support",
-    right: `IQ Earners (${PARENT_COMPANY_NAME}) complies with IT Act 2000, DPDP Act 2023, Consumer Protection Act, and RBI guidelines. Violations may result in disqualification, suspension, or forfeiture. Official support: contact@iqearners.online.`
+    right: `IQ Earners (${PARENT_COMPANY_NAME}) complies with IT Act 2000, DPDP Act 2023, Consumer Protection Act, and RBI guidelines. Violations may result in disqualification, suspension, or forfeiture. Official support: ${SUPPORT_EMAIL}.`
   }
 ]
 
@@ -203,11 +203,11 @@ export default function UserManualBook() {
                 style={{ background: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.05) 70%, transparent 100%)" }} />
               <div className="hidden sm:block absolute top-0 bottom-0 left-[50%] w-px bg-black/5 pointer-events-none z-40" />
 
-              {/* Close Button */}
+              {/* Close Button - Moved inward to prevent clipping */}
               <button
                 type="button"
                 onClick={closeBook}
-                className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 w-7 h-7 flex items-center justify-center rounded-full bg-[#ebdcc2] text-[#5a4d41] hover:bg-[#dfcdb0] hover:text-[#3a2d23] transition-colors z-50 shadow-sm border border-[#d0c7b5]/50 focus:outline-none text-xs"
+                className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 flex items-center justify-center rounded-full bg-[#ebdcc2] text-[#5a4d41] hover:bg-[#dfcdb0] hover:text-[#3a2d23] transition-all z-50 shadow-md border border-[#d0c7b5] focus:outline-none text-xs active:scale-90"
                 aria-label="Close Book"
               >
                 ✕

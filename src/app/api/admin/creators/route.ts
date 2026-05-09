@@ -3,7 +3,7 @@ import { getApplications, saveApplication, getCreators, saveCreator, type Creato
 import { getRole } from "@/lib/auth"
 import crypto from "crypto"
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
     if (await getRole() !== "admin") return NextResponse.json({ ok: false }, { status: 401 })
 
     const applications = await getApplications()

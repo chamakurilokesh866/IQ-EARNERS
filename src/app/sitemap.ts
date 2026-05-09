@@ -22,6 +22,10 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: SitemapE
 
   // Discovery / join
   { path: "/more/join", priority: 0.80, changeFrequency: "weekly" },
+  { path: "/more/faq", priority: 0.76, changeFrequency: "weekly" },
+  { path: "/integration-guide", priority: 0.74, changeFrequency: "weekly" },
+  { path: "/more/api-guide", priority: 0.74, changeFrequency: "weekly" },
+  { path: "/contact", priority: 0.62, changeFrequency: "monthly" },
 
   // Legal pages — low churn, indexed for Bing/Yandex trust signals
   { path: "/more/terms", priority: 0.45, changeFrequency: "monthly" },

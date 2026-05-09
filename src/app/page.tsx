@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import ParentCompanyMark from "@/components/ParentCompanyMark"
 
 export default function Page() {
   const router = useRouter()
@@ -65,7 +65,9 @@ export default function Page() {
               transition={{ delay: 0.6 }}
             >
               <div className="h-[1px] w-8 bg-white/20" />
-              <p className="text-navy-400 text-xs uppercase tracking-[0.2em] font-sans">Empowering Intelligence · {PARENT_COMPANY_NAME}</p>
+              <p className="text-navy-400 text-xs uppercase tracking-[0.2em] font-sans flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                <span>Empowering Intelligence ·</span> <ParentCompanyMark className="!normal-case !tracking-normal text-xs" />
+              </p>
               <div className="h-[1px] w-8 bg-white/20" />
             </motion.div>
 

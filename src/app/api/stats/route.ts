@@ -7,6 +7,7 @@ import { getTournaments } from "@/lib/tournaments"
 import { getQuizzes } from "@/lib/quizzes"
 import { getProfiles } from "@/lib/profiles"
 import { getReferrals } from "@/lib/referrals"
+import { getEnterpriseState } from "@/lib/enterpriseStore"
 
 const ROOT = path.join(process.cwd(), "src", "data")
 const files = {
@@ -29,12 +30,13 @@ export async function GET() {
   const auth = await requireAdmin()
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
 
-  const [payments, tournaments, quizzes, profiles, referrals] = await Promise.all([
+  const [payments, tournaments, quizzes, profiles, referrals, enterpriseState] = await Promise.all([
     getPayments(),
     getTournaments(),
     getQuizzes(),
     getProfiles(),
-    getReferrals()
+    getReferrals(),
+    getEnterpriseState()
   ])
   let players: any[] = []
   let prizes: any[] = []
@@ -97,6 +99,25 @@ export async function GET() {
   const deniedPayments = payments.filter((p) => p.status === "denied").length
   const totalReferralCredits = referrals.filter((r: any) => r.status === "credited").reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0)
   const activeTournaments = tournaments.filter((t: any) => t.endTime && new Date(t.endTime).getTime() > Date.now()).length
+  const paidProfiles = profiles.filter((p: any) => p?.paid === "P" || Boolean(p?.memberId)).length
+  const conversionRate = totalPlayers > 0 ? Number(((paidProfiles / totalPlayers) * 100).toFixed(2)) : 0
+  const arpu30d = paidProfiles > 0 ? Number((revenue30d / paidProfiles).toFixed(2)) : 0
+
+  const planById = new Map((enterpriseState.plans ?? []).map((p) => [p.id, p]))
+  const subs = enterpriseState.subscriptions ?? []
+  const activeSubscriptions = subs.filter((s) => s.status === "active")
+  const activeOrgIds = new Set(activeSubscriptions.map((s) => s.orgId))
+  const activeOrgCount = activeOrgIds.size
+  const trialOrgCount = subs.filter((s) => s.status === "trial").length
+  const churnedCount = subs.filter((s) => s.status === "cancelled" || s.status === "expired").length
+  const churnRiskPct = subs.length > 0 ? Number(((churnedCount / subs.length) * 100).toFixed(2)) : 0
+  const mrr = activeSubscriptions.reduce((sum, sub) => {
+    const directAmount = Number(sub.amount ?? 0)
+    if (directAmount > 0) return sum + directAmount
+    const plan = planById.get(sub.planId)
+    return sum + Number(plan?.priceMonthly ?? 0)
+  }, 0)
+  const arr = mrr * 12
 
   const paymentsByGateway: Record<string, number> = {}
   for (const p of payments) {
@@ -117,6 +138,14 @@ export async function GET() {
       activeToday,
       tournamentsCount: tournaments.length,
       activeTournaments,
+      paidProfiles,
+      conversionRate,
+      arpu30d,
+      mrr,
+      arr,
+      activeOrgCount,
+      trialOrgCount,
+      churnRiskPct,
       revenue30d,
       totalRevenue,
       totalWithdrawals,

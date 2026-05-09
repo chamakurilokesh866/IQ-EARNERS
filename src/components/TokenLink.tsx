@@ -27,7 +27,7 @@ export default function TokenLink({ href, children, className, 'aria-label': ari
   }, [href]);
 
   return (
-    <Link href={url} prefetch={false} className={className} aria-label={ariaLabel} onClick={onClick}>
+    <Link href={url} prefetch={true} className={className} aria-label={ariaLabel} onClick={onClick}>
       {children}
     </Link>
   );

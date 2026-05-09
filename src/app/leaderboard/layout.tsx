@@ -1,5 +1,13 @@
 import type { Metadata } from "next"
-import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE_URL, DESCRIPTIONS, PAGE_KEYWORDS } from "@/lib/seo"
+import {
+  SITE_URL,
+  SITE_NAME,
+  DEFAULT_OG_IMAGE_URL,
+  OG_IMAGE_WIDTH,
+  OG_IMAGE_HEIGHT,
+  DESCRIPTIONS,
+  PAGE_KEYWORDS,
+} from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Quiz Leaderboard | Top GK Quiz Rankers India – IQ Earners",
@@ -14,8 +22,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: DEFAULT_OG_IMAGE_URL,
-        width: 512,
-        height: 512,
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
         alt: "IQ Earners Quiz Leaderboard",
       },
     ],

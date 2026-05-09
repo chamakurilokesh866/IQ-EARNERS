@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { orgLoginRedirectPath, rememberOrgPortalCode } from "@/lib/orgPortalClient"
 
 type OrgInfo = { name: string; slug: string; type: string; logo?: string; tagline?: string; primaryColor: string; accentColor: string }
 type Quiz = { id: string; title: string; category: string; difficulty: string; questionCount: number; published: boolean; createdAt: string }
@@ -25,9 +26,16 @@ export default function OrgPortalPage() {
       fetch(`/api/org/${slug}/auth`, { credentials: "include" }).then((r) => r.json()),
     ]).then(([info, auth]) => {
       if (info.ok) setOrg(info.data)
-      if (auth.loggedIn) setSession(auth)
-      else router.replace(`/org/${slug}/login`)
-    }).catch(() => router.replace(`/org/${slug}/login`))
+      if (auth.loggedIn) {
+        if (auth.requiresPasswordReset) {
+          router.replace(`/org/${slug}/change-password`)
+          return
+        }
+        if (auth.portalCode) rememberOrgPortalCode(String(slug), auth.portalCode)
+        setSession(auth)
+      }
+      else router.replace(orgLoginRedirectPath(String(slug)))
+    }).catch(() => router.replace(orgLoginRedirectPath(String(slug))))
       .finally(() => setLoading(false))
   }, [slug, router])
 
@@ -51,7 +59,7 @@ export default function OrgPortalPage() {
 
   const handleLogout = async () => {
     await fetch(`/api/org/${slug}/auth`, { method: "DELETE", credentials: "include" })
-    router.replace(`/org/${slug}/login`)
+    router.replace(orgLoginRedirectPath(String(slug)))
   }
 
   if (loading || !org || !session) {

@@ -56,28 +56,35 @@ async function writeToFile(arr: Profile[]): Promise<boolean> {
   }
 }
 
+/** Escape % and _ so ILIKE matches usernames literally (allowed chars include _ and .). */
+function escapeForIlike(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_")
+}
+
+function mapSupabaseRow(r: Record<string, unknown>): Profile {
+  const d = (r.data as Record<string, unknown>) || {}
+  return {
+    uid: String(r.uid ?? ""),
+    username: typeof r.username === "string" ? r.username : undefined,
+    referralCode: typeof r.referral_code === "string" ? r.referral_code : undefined,
+    wallet: Number(r.wallet ?? 0),
+    country: typeof r.country === "string" ? r.country : undefined,
+    updated_at: r.updated_at != null ? Number(r.updated_at) : undefined,
+    paid: d.paid as "P" | "A" | undefined,
+    memberId: typeof d.memberId === "string" ? d.memberId : undefined,
+    passwordHash: typeof d.passwordHash === "string" ? d.passwordHash : undefined,
+    email: typeof d.email === "string" ? d.email : undefined,
+    ...d
+  }
+}
+
 export async function getProfiles(): Promise<Profile[]> {
   const supabase = createServerSupabase()
   if (supabase) {
     try {
       const { data, error } = await supabase.from("profiles").select("*")
       if (!error && Array.isArray(data)) {
-        return data.map((r: any) => {
-          const d = (r.data as Record<string, unknown>) || {}
-          return {
-            uid: r.uid,
-            username: r.username,
-            referralCode: r.referral_code,
-            wallet: Number(r.wallet ?? 0),
-            country: r.country,
-            updated_at: r.updated_at ? Number(r.updated_at) : undefined,
-            paid: d.paid as "P" | "A" | undefined,
-            memberId: typeof d.memberId === "string" ? d.memberId : undefined,
-            passwordHash: typeof d.passwordHash === "string" ? d.passwordHash : undefined,
-            email: typeof d.email === "string" ? d.email : undefined,
-            ...d
-          }
-        })
+        return data.map((r: Record<string, unknown>) => mapSupabaseRow(r))
       }
     } catch {}
   }
@@ -85,13 +92,41 @@ export async function getProfiles(): Promise<Profile[]> {
 }
 
 export async function getProfileByUid(uid: string): Promise<Profile | null> {
-  const arr = await getProfiles()
+  if (!uid) return null
+  const supabase = createServerSupabase()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").eq("uid", uid).maybeSingle()
+      if (!error) {
+        if (data) return mapSupabaseRow(data as Record<string, unknown>)
+        return null
+      }
+    } catch {}
+  }
+  const arr = await readFromFile()
   return arr.find((p) => p.uid === uid) ?? null
 }
 
 export async function getProfileByUsername(username: string): Promise<Profile | null> {
-  const arr = await getProfiles()
-  return arr.find((p) => String(p.username || "").toLowerCase() === username.toLowerCase()) ?? null
+  const trimmed = username.trim()
+  if (!trimmed) return null
+  const supabase = createServerSupabase()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .ilike("username", escapeForIlike(trimmed))
+        .limit(1)
+        .maybeSingle()
+      if (!error) {
+        if (data) return mapSupabaseRow(data as Record<string, unknown>)
+        return null
+      }
+    } catch {}
+  }
+  const arr = await readFromFile()
+  return arr.find((p) => String(p.username || "").toLowerCase() === trimmed.toLowerCase()) ?? null
 }
 
 export async function getProfileByReferralCode(code: string): Promise<Profile | null> {
@@ -101,8 +136,23 @@ export async function getProfileByReferralCode(code: string): Promise<Profile | 
 
 export async function getProfileByEmail(email: string): Promise<Profile | null> {
   if (!email || !String(email).includes("@")) return null
-  const arr = await getProfiles()
   const normalized = String(email).trim().toLowerCase()
+  const supabase = createServerSupabase()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .contains("data", { email: normalized })
+        .limit(1)
+        .maybeSingle()
+      if (!error) {
+        if (data) return mapSupabaseRow(data as Record<string, unknown>)
+        return null
+      }
+    } catch {}
+  }
+  const arr = await readFromFile()
   return arr.find((p) => String(p.email || "").toLowerCase() === normalized) ?? null
 }
 

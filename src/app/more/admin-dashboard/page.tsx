@@ -14,6 +14,11 @@ import {
   parseTabParam,
   type AdminTab,
 } from "@/components/admin/AdminNavConfig"
+import {
+  IQ_DEFERRED_INSTALL_EVENT,
+  type BeforeInstallPromptEventType,
+  isAdminStandalonePwa,
+} from "@/lib/adminPwaInstall"
 
 function useNowString() {
   const [t, setT] = useState("")
@@ -78,6 +83,9 @@ function AdminDashboardInner() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [sidebarCompact, setSidebarCompact] = useState(false)
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEventType | null>(null)
+  const [isStandaloneInstalled, setIsStandaloneInstalled] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const tabRef = useRef<AdminTab>(tab)
   const clock = useNowString()
@@ -103,6 +111,38 @@ function AdminDashboardInner() {
       setSidebarCompact(localStorage.getItem(LS_SIDEBAR_COMPACT) === "1")
     } catch {
       /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    setIsStandaloneInstalled(isAdminStandalonePwa())
+    setIsOffline(!navigator.onLine)
+    const onInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredInstallPrompt(e as BeforeInstallPromptEventType)
+    }
+    const onForwardedInstall = (ce: Event) => {
+      const detail = (ce as CustomEvent<BeforeInstallPromptEventType>).detail
+      if (detail) setDeferredInstallPrompt(detail)
+    }
+    const onOnline = () => setIsOffline(false)
+    const onOffline = () => setIsOffline(true)
+    const onInstalled = () => {
+      setIsStandaloneInstalled(true)
+      setDeferredInstallPrompt(null)
+    }
+    window.addEventListener("beforeinstallprompt", onInstallPrompt)
+    window.addEventListener(IQ_DEFERRED_INSTALL_EVENT, onForwardedInstall)
+    window.addEventListener("online", onOnline)
+    window.addEventListener("offline", onOffline)
+    window.addEventListener("appinstalled", onInstalled)
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onInstallPrompt)
+      window.removeEventListener(IQ_DEFERRED_INSTALL_EVENT, onForwardedInstall)
+      window.removeEventListener("online", onOnline)
+      window.removeEventListener("offline", onOffline)
+      window.removeEventListener("appinstalled", onInstalled)
     }
   }, [])
 
@@ -158,6 +198,13 @@ function AdminDashboardInner() {
       }
     })
   }, [tab, stats, blockedCount])
+
+  const installAdminApp = useCallback(async () => {
+    if (!deferredInstallPrompt) return
+    await deferredInstallPrompt.prompt()
+    await deferredInstallPrompt.userChoice.catch(() => null)
+    setDeferredInstallPrompt(null)
+  }, [deferredInstallPrompt])
 
   const filteredNavItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -236,6 +283,10 @@ function AdminDashboardInner() {
         currentNavItem={currentNavItem}
         onRefreshStats={refreshStats}
         onCopyContext={copyContextToClipboard}
+        isStandaloneAdminApp={isStandaloneInstalled}
+        canInstallAdminApp={!isStandaloneInstalled && !!deferredInstallPrompt}
+        onInstallAdminApp={installAdminApp}
+        isOffline={isOffline}
       >
         <AdminTabContent tab={tab} navigateToTab={navigateToTab} stats={stats} />
       </AdminWorkspaceShell>

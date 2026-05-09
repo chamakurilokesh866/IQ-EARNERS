@@ -41,7 +41,7 @@ export function QuizCard({
         {status !== "Published" && onPublish && <button type="button" className="rounded bg-success px-4 py-2 text-black font-semibold" onClick={onPublish}>Publish</button>}
         {id && onImportQuestions && (
           <label className="rounded bg-navy-700 px-4 py-2 cursor-pointer text-sm">
-            <input hidden type="file" accept=".json,.csv" onChange={(e) => e.target.files?.[0] && onImportQuestions(id, e.target.files[0])} />
+            <input hidden type="file" accept=".json,.csv,.pdf,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && onImportQuestions(id, e.target.files[0])} />
             Import Questions
           </label>
         )}
@@ -125,6 +125,7 @@ export default function QuizManagement() {
   const [aiError, setAiError] = useState("")
   const [aiAudience, setAiAudience] = useState<string>("general")
   const [aiDepartment, setAiDepartment] = useState<string | null>(null)
+  const [aiSchoolClass, setAiSchoolClass] = useState<string | null>(null)
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null)
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; source?: string; error?: string; schema?: string } | null>(null)
   const [pdfUrlForQuiz, setPdfUrlForQuiz] = useState("")
@@ -181,7 +182,7 @@ export default function QuizManagement() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ pdfUrl: url, title: "Quiz from PDF" })
+        body: JSON.stringify({ pdfUrl: url, title: "Quiz from PDF", quiz_type: targetType })
       })
       const j = await res.json().catch(() => ({}))
       if (res.ok && j?.ok) {
@@ -198,6 +199,22 @@ export default function QuizManagement() {
   }
 
   const upload = async (file: File) => {
+    const lower = file.name.toLowerCase()
+    if (lower.endsWith(".pdf") || lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("title", file.name.replace(/\.[^.]+$/, "") || "Imported Quiz")
+      fd.append("quiz_type", targetType)
+      const res = await fetch("/api/quizzes", { method: "POST", credentials: "include", body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j?.ok) {
+        setAiError(String(j?.error || "Upload failed. Check format and try again."))
+        return
+      }
+      setAiError("")
+      await refreshQuizzes()
+      return
+    }
     const text = await file.text()
     let payload: any[] = []
     try {
@@ -226,20 +243,33 @@ export default function QuizManagement() {
   }
 
   const importQuestionsToQuiz = async (quizId: string, file: File) => {
-    const text = await file.text()
+    const lower = file.name.toLowerCase()
     let questions: any[] = []
-    try {
-      const json = JSON.parse(text)
-      if (Array.isArray(json)) {
-        const first = json[0]
-        questions = first?.questions && Array.isArray(first.questions) ? first.questions : json
-      } else {
-        questions = json?.questions ?? (Array.isArray(json) ? json : [])
+    if (lower.endsWith(".pdf") || lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+      const fd = new FormData()
+      fd.append("file", file)
+      const parseRes = await fetch("/api/admin/quiz/parse-file", { method: "POST", credentials: "include", body: fd })
+      const pj = await parseRes.json().catch(() => ({}))
+      if (!parseRes.ok || !pj?.ok || !Array.isArray(pj.questions)) {
+        setAiError(String(pj?.error || "Could not parse file."))
+        return
       }
-    } catch {
-      const { parseCSV, rowToQuestion } = await import("@/utils/csv")
-      const rows = parseCSV(text)
-      questions = rows.map((r) => rowToQuestion(r)).filter((q) => q.question && q.options.length >= 2)
+      questions = pj.questions
+    } else {
+      const text = await file.text()
+      try {
+        const json = JSON.parse(text)
+        if (Array.isArray(json)) {
+          const first = json[0]
+          questions = first?.questions && Array.isArray(first.questions) ? first.questions : json
+        } else {
+          questions = json?.questions ?? (Array.isArray(json) ? json : [])
+        }
+      } catch {
+        const { parseCSV, rowToQuestion } = await import("@/utils/csv")
+        const rows = parseCSV(text)
+        questions = rows.map((r) => rowToQuestion(r)).filter((q) => q.question && q.options.length >= 2)
+      }
     }
     const res = await fetch(`/api/quizzes/${quizId}`, {
       method: "PUT",
@@ -251,6 +281,7 @@ export default function QuizManagement() {
   }
 
   const deleteQuiz = async (id: string) => {
+    if (!confirm("Delete this quiz permanently?")) return
     const res = await fetch(`/api/quizzes/${id}`, { method: "DELETE", credentials: "include" })
     if (res.ok) await refreshQuizzes()
   }
@@ -275,6 +306,10 @@ export default function QuizManagement() {
       setAiError("Quiz title is required.")
       return
     }
+    if (aiAudience === "school" && !aiSchoolClass) {
+      setAiError("Please select a school class (1-12).")
+      return
+    }
     setAiError("")
     setAiGenerating(true)
     try {
@@ -285,7 +320,8 @@ export default function QuizManagement() {
         difficulties: aiDifficulties.length === 3 ? [] : aiDifficulties,
         questionTypes: aiQuestionTypes === "mixed" ? [] : [aiQuestionTypes],
         audienceSegment: aiAudience !== "general" ? aiAudience : undefined,
-        department: aiDepartment || undefined
+        department: aiDepartment || undefined,
+        schoolClass: aiAudience === "school" ? aiSchoolClass || undefined : undefined
       }
       const res = await fetch("/api/admin/quiz/generate-questions", {
         method: "POST",
@@ -352,8 +388,8 @@ export default function QuizManagement() {
         <div className="text-xl font-semibold text-white">Quiz Management</div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="admin-btn admin-btn-primary cursor-pointer inline-block">
-            <input hidden type="file" accept=".json,.csv" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-            + Upload JSON / CSV
+            <input hidden type="file" accept=".json,.csv,.pdf,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+            + Upload PDF / JSON / CSV / Excel
           </label>
           <span className="text-navy-500 text-xs">or paste PDF URL:</span>
           <input
@@ -626,6 +662,7 @@ export default function QuizManagement() {
             {(() => {
               const audienceOpts: { id: string; label: string; departments?: { id: string; label: string }[] }[] = [
                 { id: "general", label: "General" },
+                { id: "school", label: "School (Class-wise)" },
                 { id: "btech", label: "B.Tech", departments: [{ id: "datascience", label: "Data Science" }, { id: "aiml", label: "AI & ML" }, { id: "cybersecurity", label: "Cybersecurity" }, { id: "cse", label: "CSE" }, { id: "it", label: "IT" }, { id: "mechanical", label: "Mechanical" }, { id: "civil", label: "Civil" }, { id: "eee", label: "EEE" }] },
                 { id: "bipc", label: "BiPC", departments: [{ id: "mbbs", label: "MBBS" }, { id: "pharmacy", label: "Pharmacy" }, { id: "nursing", label: "Nursing" }, { id: "physiotherapy", label: "Physiotherapy" }] },
                 { id: "pg", label: "PG", departments: [{ id: "mba", label: "MBA" }, { id: "mtech", label: "M.Tech" }, { id: "msc", label: "M.Sc" }] },
@@ -648,6 +685,7 @@ export default function QuizManagement() {
                         onClick={() => {
                           setAiAudience(opt.id)
                           setAiDepartment(null)
+                          setAiSchoolClass(null)
                         }}
                         className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-all ${aiAudience === opt.id ? "bg-primary text-black shadow-lg shadow-primary/20" : "bg-navy-700/80 text-navy-300 hover:bg-navy-600 hover:text-white"}`}
                       >
@@ -670,6 +708,26 @@ export default function QuizManagement() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  ) : null}
+                  {aiAudience === "school" ? (
+                    <div className="mt-3 pl-0.5">
+                      <span className="text-[11px] text-navy-400 uppercase tracking-wider">School class</span>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((cls) => (
+                          <button
+                            key={cls}
+                            type="button"
+                            onClick={() => setAiSchoolClass(aiSchoolClass === cls ? null : cls)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${aiSchoolClass === cls ? "bg-primary/20 border border-primary/50 text-primary" : "bg-navy-700/60 text-navy-400 hover:bg-navy-600 hover:text-white border border-transparent"}`}
+                          >
+                            Class {cls}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] text-navy-500">
+                        Select class to generate syllabus-appropriate questions.
+                      </p>
                     </div>
                   ) : null}
                 </>

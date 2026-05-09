@@ -22,6 +22,7 @@ export default function CreatorJoinPage() {
     const [statusResult, setStatusResult] = useState<any>(null)
     const [error, setError] = useState("")
     const [receivedOtp, setReceivedOtp] = useState("")
+    const [otpResendSecs, setOtpResendSecs] = useState(0)
     const [showTerms, setShowTerms] = useState(false)
     const [termsTab, setTermsTab] = useState<"terms" | "privacy">("terms")
 
@@ -36,6 +37,12 @@ export default function CreatorJoinPage() {
         window.addEventListener("popstate", handlePopState)
         return () => window.removeEventListener("popstate", handlePopState)
     }, [step])
+
+    useEffect(() => {
+        if (otpResendSecs <= 0) return
+        const t = setInterval(() => setOtpResendSecs((s) => (s <= 1 ? 0 : s - 1)), 1000)
+        return () => clearInterval(t)
+    }, [otpResendSecs])
 
     const handleProceedToSocial = () => {
         if (!email.includes("@") || !email.includes(".")) {
@@ -66,9 +73,29 @@ export default function CreatorJoinPage() {
         setLoading(false)
         if (j.ok) {
             setStep("otp")
+            setOtp("")
+            setOtpResendSecs(0)
             if (j.otp) setReceivedOtp(j.otp)
         }
         else setError(j.error || "Failed to verify handle or send OTP")
+    }
+
+    const handleResendCreatorOtp = async () => {
+        if (!handle || handle.length < 3 || otpResendSecs > 0 || loading) return
+        setLoading(true)
+        setError("")
+        const r = await fetch("/api/creator/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, name, platform, handle })
+        })
+        const j = await r.json()
+        setLoading(false)
+        if (j.ok) {
+            setOtp("")
+            setOtpResendSecs(45)
+            if (j.otp) setReceivedOtp(j.otp)
+        } else setError(j.error || "Could not resend code")
     }
 
     const handleApply = async () => {
@@ -316,8 +343,12 @@ export default function CreatorJoinPage() {
                                     placeholder="000000"
                                 />
                             </div>
+                            <p className="text-[10px] text-navy-500 text-center leading-relaxed">
+                                Didn&apos;t get the code? Check spam or resend — a new code invalidates the old one.
+                            </p>
                             <div className="flex flex-col gap-2">
                                 <button
+                                    type="button"
                                     disabled={otp.length !== 6 || loading}
                                     onClick={handleApply}
                                     className="w-full py-4 rounded-2xl bg-primary text-black font-bold disabled:opacity-50 transition-all shadow-lg"
@@ -325,8 +356,17 @@ export default function CreatorJoinPage() {
                                     {loading ? "Approving... 🤖" : "Submit Application"}
                                 </button>
                                 <button
+                                    type="button"
+                                    onClick={() => void handleResendCreatorOtp()}
+                                    disabled={loading || otpResendSecs > 0}
+                                    className="text-[10px] font-semibold text-primary/90 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {otpResendSecs > 0 ? `Resend code in ${otpResendSecs}s` : "Resend verification email"}
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setStep("form")}
-                                    className="text-navy-400 text-sm"
+                                    className="text-navy-400 text-xs"
                                 >
                                     Back to form
                                 </button>

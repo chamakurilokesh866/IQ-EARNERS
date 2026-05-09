@@ -10,6 +10,26 @@ type QuizData = {
   timePerQuestion?: number
 }
 
+const sendIntegrityEvent = async (
+  slug: string,
+  quizId: string,
+  type: "tab_hidden" | "window_blur" | "fullscreen_exit" | "other",
+  message: string,
+  meta?: Record<string, unknown>
+) => {
+  try {
+    await fetch(`/api/org/${slug}/integrity`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ quizId, type, message, meta })
+    })
+  } catch {
+    // ignore integrity network failure
+  }
+}
+
 export default function OrgQuizPage() {
   const { slug, quizId } = useParams<{ slug: string; quizId: string }>()
   const router = useRouter()
@@ -34,6 +54,23 @@ export default function OrgQuizPage() {
       .catch(() => router.replace(`/org/${slug}`))
       .finally(() => setLoading(false))
   }, [slug, quizId, router])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        void sendIntegrityEvent(slug, quizId, "tab_hidden", "User switched tab or minimized window")
+      }
+    }
+    const onBlur = () => {
+      void sendIntegrityEvent(slug, quizId, "window_blur", "Window lost focus")
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("blur", onBlur)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("blur", onBlur)
+    }
+  }, [slug, quizId])
 
   const selectAnswer = (optIdx: number) => {
     if (submitted) return
@@ -79,7 +116,7 @@ export default function OrgQuizPage() {
           <div className="space-y-3 text-left mb-8">
             {quiz.questions.map((question, i) => {
               const userAns = answers[i]
-              const isCorrect = userAns === question.correct
+              const isCorrect = userAns === Math.min(Math.max(0, Number(question.correct) || 0), Math.max(0, question.options.length - 1))
               return (
                 <div key={i} className={`rounded-xl border p-4 ${isCorrect ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
                   <p className="text-xs font-bold mb-1">Q{i + 1}: {question.question}</p>

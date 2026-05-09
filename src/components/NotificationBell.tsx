@@ -141,9 +141,10 @@ export default function NotificationBell() {
                            n.type === 'win' ? "bg-amber-400/10 border-amber-400/20 text-amber-100" :
                            n.type === 'challenge' ? "bg-violet-400/10 border-violet-400/20 text-violet-100" :
                            n.type === 'spin' ? "bg-fuchsia-400/10 border-fuchsia-400/20 text-fuchsia-100" :
+                           n.type === 'certificate' ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-100" :
                            "bg-primary/10 border-primary/20 text-primary-100"
                        }`}>
-                           {n.type === 'challenge' ? '⚔️' : n.type === 'win' ? '🏆' : n.type === 'spin' ? '🎡' : '🔔'}
+                           {n.type === 'challenge' ? '⚔️' : n.type === 'win' ? '🏆' : n.type === 'spin' ? '🎡' : n.type === 'certificate' ? '📜' : '🔔'}
                        </span>
                        <div>
                           <p className="text-sm font-medium leading-relaxed">{n.message}</p>

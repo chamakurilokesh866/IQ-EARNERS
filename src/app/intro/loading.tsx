@@ -1,11 +1,22 @@
 /** Loading state for intro route — shown briefly while useSearchParams resolves. */
 export default function IntroLoading() {
   return (
-    <main className="intro-page-scroll min-h-screen flex flex-col items-center px-4 sm:px-6 py-8 sm:py-10 relative">
-      <div className="absolute inset-0 bg-black -z-20" />
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 min-h-[40vh]">
-        <div className="w-20 h-20 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-        <p className="text-sm text-white/50">Loading…</p>
+    <main className="intro-page-scroll min-h-[100dvh] flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-10 relative bg-black/95">
+      <div className="relative flex flex-col items-center justify-center p-8 animate-fade-in text-white">
+        <div className="relative mb-8">
+          {/* Animated Glow Rings */}
+          <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
+          <div className="relative w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        </div>
+        
+        <div className="space-y-4 text-center">
+          <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary animate-pulse">
+            Terminal Initialising
+          </div>
+          <div className="w-48 h-[1px] bg-white/5 rounded-full overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent w-full animate-[moneyFlow_1.5s_infinite_linear]" />
+          </div>
+        </div>
       </div>
     </main>
   )

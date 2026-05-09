@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+
+export const dynamic = "force-dynamic"
 import { getPayments } from "@/lib/payments"
 import { getProfileByUid } from "@/lib/profiles"
 import { rateLimit } from "@/lib/rateLimit"

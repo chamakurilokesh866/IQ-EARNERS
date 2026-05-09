@@ -39,11 +39,12 @@ export default function UnblockCallbackPage() {
           clearBlockedCookies()
           setStatus("success")
           setTimeout(() => window.location.replace("/intro?msg=unblocked"), 3000)
+          return
         }
+        setStatus("failed")
       } catch {
         setStatus("failed")
       }
-      setStatus("failed")
     }
 
     verify()

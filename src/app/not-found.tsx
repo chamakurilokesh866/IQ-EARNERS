@@ -1,7 +1,7 @@
 "use client"
 
 import TokenLink from "@/components/TokenLink"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import ParentCompanyMark from "@/components/ParentCompanyMark"
 
 export default function NotFound() {
   return (
@@ -38,8 +38,8 @@ export default function NotFound() {
         </div>
       </div>
 
-      <div className="mt-12 text-white/20 text-sm font-medium tracking-widest uppercase text-center">
-        IQ Earners · {PARENT_COMPANY_NAME}
+      <div className="mt-12 text-white/20 text-sm font-medium tracking-widest uppercase text-center flex flex-wrap items-center justify-center gap-x-2">
+        <span>IQ Earners ·</span> <ParentCompanyMark className="!normal-case opacity-80" />
       </div>
     </div>
   )

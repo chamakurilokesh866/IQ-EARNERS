@@ -31,7 +31,7 @@ export default function robots(): MetadataRoute.Robots {
       // General bots: allow public pages, block private
       {
         userAgent: "*",
-        allow: ["/", "/intro", "/daily-quiz", "/tournaments", "/leaderboard", "/prizes", "/more/terms", "/more/privacy", "/more/rules"],
+        allow: ["/", "/intro", "/daily-quiz", "/tournaments", "/leaderboard", "/prizes", "/contact", "/integration-guide", "/more/faq", "/more/api-guide", "/more/terms", "/more/privacy", "/more/rules", "/more/refund", "/more/disclaimer", "/more/cookie-policy", "/more/grievance"],
         disallow: PRIVATE_PATHS,
         crawlDelay: 2,
       },
@@ -39,7 +39,7 @@ export default function robots(): MetadataRoute.Robots {
       // Googlebot: full access, no crawl delay
       {
         userAgent: "Googlebot",
-        allow: ["/", "/intro", "/daily-quiz", "/tournaments", "/leaderboard", "/prizes", "/more/"],
+        allow: ["/", "/intro", "/daily-quiz", "/tournaments", "/leaderboard", "/prizes", "/contact", "/more/"],
         disallow: PRIVATE_PATHS,
       },
 

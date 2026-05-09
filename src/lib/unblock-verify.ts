@@ -5,6 +5,8 @@
 import { findPayment, addPayment, updatePayment, createUnblockPaymentEntry } from "./payments"
 import { unblockUser } from "./blocked"
 import { recordUnblocked } from "./unblocked"
+import { clearBlockedFlagsInUserStats } from "./userStats"
+import { isCashfreePgOrderPaid } from "./cashfreeSyncOrder"
 
 function extractUsername(orderData: Record<string, unknown>): string | null {
   const meta = (orderData?.order_meta ?? {}) as Record<string, unknown>
@@ -38,6 +40,7 @@ export async function verifyUnblockPayment(
     const meta = payment.meta as Record<string, unknown> | undefined
     const raw = meta?.unblock_username ?? meta?.unblockFor ?? usernameParam
     const username = (typeof raw === "string" ? raw.trim() : "") || null
+    if (username) await clearBlockedFlagsInUserStats(username).catch(() => {})
     return { ok: true, status: "success", unblocked: !!username, username }
   }
 
@@ -57,11 +60,12 @@ export async function verifyUnblockPayment(
   }
 
   const orderData = (data?.order ?? data) as Record<string, unknown>
-  const status =
-    orderData?.order_status ?? orderData?.payment_status ?? (data as Record<string, unknown>)?.order_status ?? (data as Record<string, unknown>)?.payment_status
-  const paid = status === "PAID" || status === "ACTIVE" || status === "SUCCESS" || status === "success"
+  const root = data as Record<string, unknown>
+  const paid = isCashfreePgOrderPaid(orderData, root)
+  const statusSnap =
+    orderData?.order_status ?? orderData?.payment_status ?? root?.order_status ?? root?.payment_status
   if (!paid) {
-    return { ok: false, error: "Payment not completed", status: status as number }
+    return { ok: false, error: "Payment not completed", status: statusSnap as number }
   }
 
   const amount = Number(orderData?.order_amount ?? orderData?.orderAmount ?? 0)
@@ -78,8 +82,8 @@ export async function verifyUnblockPayment(
   }
 
   if (username) {
-    await unblockUser(username)
-    await recordUnblocked(username, Date.now())
+    const now = Date.now()
+    await Promise.all([unblockUser(username), recordUnblocked(username, now), clearBlockedFlagsInUserStats(username)])
   }
   return { ok: true, status: "success", unblocked: true, username }
 }

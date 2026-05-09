@@ -14,6 +14,10 @@ export default function AdminSystem() {
   const [useResendEmails, setUseResendEmails] = useState<boolean>(false)
   const [languageSelectionEnabled, setLanguageSelectionEnabled] = useState<boolean>(true)
   const [allowDeveloperOptions, setAllowDeveloperOptions] = useState<boolean>(false)
+  const [proctoringAlertsEnabled, setProctoringAlertsEnabled] = useState<boolean>(true)
+  const [proctoringAlertsCooldownMin, setProctoringAlertsCooldownMin] = useState<number>(30)
+  const [proctoringAlertsPush, setProctoringAlertsPush] = useState<boolean>(true)
+  const [proctoringAlertsEmail, setProctoringAlertsEmail] = useState<boolean>(true)
   const [adminIp, setAdminIp] = useState<string>("...")
   const run = (name: string, fn: () => void) => {
     fn()
@@ -30,6 +34,10 @@ export default function AdminSystem() {
         if (typeof d.useResendEmails === "boolean") setUseResendEmails(d.useResendEmails)
         if (typeof d.languageSelectionEnabled === "boolean") setLanguageSelectionEnabled(d.languageSelectionEnabled)
         if (typeof d.allowDeveloperOptions === "boolean") setAllowDeveloperOptions(d.allowDeveloperOptions)
+        if (typeof d.proctoringAlertsEnabled === "boolean") setProctoringAlertsEnabled(d.proctoringAlertsEnabled)
+        if (typeof d.proctoringAlertsCooldownMin === "number") setProctoringAlertsCooldownMin(d.proctoringAlertsCooldownMin)
+        if (typeof d.proctoringAlertsPush === "boolean") setProctoringAlertsPush(d.proctoringAlertsPush)
+        if (typeof d.proctoringAlertsEmail === "boolean") setProctoringAlertsEmail(d.proctoringAlertsEmail)
       })
       .catch(() => { })
 
@@ -118,6 +126,55 @@ export default function AdminSystem() {
             <p className="text-xs text-navy-300 pt-1">
               Keep this off for security unless testing.
             </p>
+            <div className="mt-3 rounded-xl border border-navy-600 bg-navy-800/40 p-3">
+              <div className="text-sm font-semibold text-white">Proctoring Auto Alerts</div>
+              <p className="mt-1 text-xs text-navy-300">
+                Automatically notify admins when users cross the proctoring risk threshold.
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={proctoringAlertsEnabled}
+                    onChange={(e) => setProctoringAlertsEnabled(e.target.checked)}
+                  />
+                  <span>Enable auto alerts</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={proctoringAlertsPush}
+                    onChange={(e) => setProctoringAlertsPush(e.target.checked)}
+                    disabled={!proctoringAlertsEnabled}
+                  />
+                  <span>Send push notifications</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={proctoringAlertsEmail}
+                    onChange={(e) => setProctoringAlertsEmail(e.target.checked)}
+                    disabled={!proctoringAlertsEnabled}
+                  />
+                  <span>Send email notifications</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-navy-300">Cooldown (minutes)</label>
+                  <input
+                    className="admin-form-field w-24"
+                    type="number"
+                    min={1}
+                    max={1440}
+                    value={proctoringAlertsCooldownMin}
+                    onChange={(e) => setProctoringAlertsCooldownMin(Number(e.target.value))}
+                    disabled={!proctoringAlertsEnabled}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <button
             className="mt-3 pill bg-primary"
@@ -125,7 +182,17 @@ export default function AdminSystem() {
               await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ entryFee, currency, useResendEmails, languageSelectionEnabled, allowDeveloperOptions }),
+                body: JSON.stringify({
+                  entryFee,
+                  currency,
+                  useResendEmails,
+                  languageSelectionEnabled,
+                  allowDeveloperOptions,
+                  proctoringAlertsEnabled,
+                  proctoringAlertsPush,
+                  proctoringAlertsEmail,
+                  proctoringAlertsCooldownMin: Math.max(1, Math.min(1440, Number(proctoringAlertsCooldownMin) || 30)),
+                }),
               })
               run("Save Settings", () => { })
             }}
@@ -160,18 +227,53 @@ export default function AdminSystem() {
             }}>Clear Users (Profiles)</button>
           </div>
           <div>
-            <p className="text-sm text-navy-300">Reset all site data (profiles, payments, tournaments, prizes, leaderboard, etc.). This will log out users.</p>
+            <p className="text-sm text-navy-300">
+              <strong className="text-white">Content reset</strong> — removes quizzes, tournaments, leaderboard, notices, schedule, and related ops data. Keeps user accounts and payment history.
+            </p>
+            <button
+              className="mt-2 pill bg-navy-700 hover:bg-navy-600"
+              onClick={async () => {
+                if (!confirm("Reset admin content (quizzes, tournaments, leaderboard, notices, etc.)? User profiles and payments are kept.")) return
+                const r = await fetch("/api/admin/reset", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ confirm: "RESET_ADMIN_CONTENT", mode: "content" }),
+                })
+                const j = await r.json().catch(() => ({}))
+                if (r.ok && j?.ok) {
+                  run("Content reset OK" + (j?.warning ? " (see warning)" : ""), () => {})
+                  if (j?.warning) setLogs((prev) => [`${new Date().toLocaleTimeString()} • ${j.warning}`, ...prev].slice(0, 8))
+                } else {
+                  setLogs((prev) => [`${new Date().toLocaleTimeString()} • ${j?.error ?? "Reset failed"}`, ...prev].slice(0, 8))
+                }
+              }}
+            >
+              Reset admin content (keep users)
+            </button>
+          </div>
+          <div className="pt-2 border-t border-navy-600">
+            <p className="text-sm text-navy-300">
+              <strong className="text-amber-400">Full reset</strong> — deletes profiles, payments, quizzes, everything. Use only for a completely fresh install.
+            </p>
             <button className="mt-2 pill bg-primary" onClick={async () => {
-              if (!confirm("Reset all site data? This will clear profiles, payments, tournaments, quizzes, leaderboard, referrals and log out users.")) return
-              const r = await fetch("/api/admin/reset", { method: "POST", credentials: "include" })
+              if (!confirm("FULL RESET: This deletes ALL users, payments, quizzes, tournaments, and data. Type OK in the next box.")) return
+              const typed = window.prompt('Type RESET_ALL_DATA to confirm:')
+              if (typed !== "RESET_ALL_DATA") return
+              const r = await fetch("/api/admin/reset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ confirm: "RESET_ALL_DATA" }),
+              })
               const j = await r.json().catch(() => ({}))
               if (r.ok && j?.ok) {
-                run("Reset Site Data" + (j?.warning ? " (see warning)" : ""), () => { })
+                run("Full site reset" + (j?.warning ? " (see warning)" : ""), () => { })
                 if (j?.warning) setLogs((prev) => [`${new Date().toLocaleTimeString()} • ${j.warning}`, ...prev].slice(0, 8))
               } else {
                 setLogs((prev) => [`${new Date().toLocaleTimeString()} • ${j?.error ?? "Reset failed"}`, ...prev].slice(0, 8))
               }
-            }}>Reset Site Data</button>
+            }}>Full reset (destructive)</button>
           </div>
         </div>
       </div>

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import crypto from "crypto"
-import { rateLimit } from "@/lib/rateLimit"
+import { rateLimitByAccount } from "@/lib/rateLimit"
 import { cookieOptions, clearCookieOptions } from "@/lib/cookieOptions"
+import { getAdminTotpSecret, isAdminTotpEnabled, verifyAdminTotpToken } from "@/lib/adminTotp"
+import { getAdminRoleFromEnv } from "@/lib/auth"
 
 const SESSION_COOKIE = "admin_otp_session"
 const LOCK_COOKIE = "admin_otp_lock"
-const DEFAULT_OTP = process.env.NODE_ENV === "development" ? "0866" : ""
 const LOCK_DURATION_MS = 3 * 60 * 1000
 const MAX_ATTEMPTS = 5
 
@@ -61,19 +62,16 @@ function createLockCookie(lockedUntil: number, failedAttempts: number): string {
   return `${payload}.${sig}`
 }
 
-function getExpectedOtp(): string {
-  const otp = process.env.ADMIN_OTP ?? DEFAULT_OTP
-  return String(otp).trim().slice(0, 4)
-}
-
 function clearAdminCookies(res: NextResponse) {
   res.cookies.set("role", "", clearCookieOptions())
+  res.cookies.set("admin_role", "", clearCookieOptions())
+  res.cookies.set("admin_auth_at", "", clearCookieOptions())
   res.cookies.set(SESSION_COOKIE, "", clearCookieOptions())
   res.cookies.set(LOCK_COOKIE, "", clearCookieOptions())
 }
 
 export async function POST(req: Request) {
-  const rl = await rateLimit(req, "adminLogin")
+  const rl = await rateLimitByAccount(req, "adminLogin", "admin-otp")
   if (!rl.ok) return NextResponse.json({ ok: false, error: "Too many attempts", retryAfter: rl.retryAfter }, { status: 429 })
   const cookieStore = await cookies()
   const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value
@@ -87,12 +85,15 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const code = String(body?.code ?? "")
+  const raw = String(body?.code ?? "")
     .trim()
     .replace(/\D/g, "")
-    .slice(0, 4)
-  if (code.length !== 4) {
-    return NextResponse.json({ ok: false, error: "Enter 4 digits" }, { status: 400 })
+  if (!isAdminTotpEnabled()) {
+    return NextResponse.json({ ok: false, error: "ADMIN_TOTP_SECRET not configured" }, { status: 500 })
+  }
+  const code = raw.slice(0, 6)
+  if (code.length !== 6) {
+    return NextResponse.json({ ok: false, error: "Enter 6-digit authenticator code" }, { status: 400 })
   }
 
   const now = Date.now()
@@ -107,32 +108,34 @@ export async function POST(req: Request) {
     return res
   }
 
-  const expected = getExpectedOtp()
-  if (code === expected) {
+  const secret = getAdminTotpSecret()
+  if (verifyAdminTotpToken(code, secret)) {
     const slug = process.env.ADMIN_DASHBOARD_SLUG?.trim() || "admin"
     const redirectTo = `/a/${slug}`
     const res = NextResponse.json({ ok: true, redirectTo })
     res.cookies.set(SESSION_COOKIE, "", clearCookieOptions())
     res.cookies.set(LOCK_COOKIE, "", clearCookieOptions())
     res.cookies.set("role", "admin", cookieOptions({ maxAge: 60 * 60 * 24 }))
+    res.cookies.set("admin_role", getAdminRoleFromEnv(), cookieOptions({ maxAge: 60 * 60 * 24 }))
+    res.cookies.set("admin_auth_at", String(Date.now()), cookieOptions({ maxAge: 60 * 60 * 24 }))
     return res
   }
 
-  const newAttempts = lock.failedAttempts + 1
-  const newLockedUntil = newAttempts >= MAX_ATTEMPTS ? now + LOCK_DURATION_MS : 0
-  const res = NextResponse.json(
+  const newAttemptsFail = lock.failedAttempts + 1
+  const newLockedUntilFail = newAttemptsFail >= MAX_ATTEMPTS ? now + LOCK_DURATION_MS : 0
+  const resFail = NextResponse.json(
     {
       ok: false,
-      error: newAttempts >= MAX_ATTEMPTS
+      error: newAttemptsFail >= MAX_ATTEMPTS
         ? "Too many failed attempts. Admin dashboard locked for 3 minutes."
-        : "Invalid code",
-      remainingAttempts: Math.max(0, MAX_ATTEMPTS - newAttempts),
-      locked: newAttempts >= MAX_ATTEMPTS,
-      lockedUntil: newLockedUntil
+        : "Invalid authenticator code",
+      remainingAttempts: Math.max(0, MAX_ATTEMPTS - newAttemptsFail),
+      locked: newAttemptsFail >= MAX_ATTEMPTS,
+      lockedUntil: newLockedUntilFail
     },
     { status: 401 }
   )
-  clearAdminCookies(res)
-  res.cookies.set(LOCK_COOKIE, createLockCookie(newLockedUntil, newAttempts >= MAX_ATTEMPTS ? 0 : newAttempts), cookieOptions({ maxAge: 300 }))
-  return res
+  clearAdminCookies(resFail)
+  resFail.cookies.set(LOCK_COOKIE, createLockCookie(newLockedUntilFail, newAttemptsFail >= MAX_ATTEMPTS ? 0 : newAttemptsFail), cookieOptions({ maxAge: 300 }))
+  return resFail
 }

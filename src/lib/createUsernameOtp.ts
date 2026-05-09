@@ -24,7 +24,7 @@ function tokenKey(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex").slice(0, 32)
 }
 
-type Entry = { otp: string; expires: number; attempts: number }
+type Entry = { otp: string; expires: number; attempts: number; verifiedAt?: number }
 
 async function readStore(): Promise<Record<string, Entry>> {
   try {
@@ -72,7 +72,8 @@ export async function storeOtp(token: string, otp: string, length: number): Prom
   store[key] = {
     otp: otp.slice(0, length),
     expires: Date.now() + TTL_MS,
-    attempts: 0
+    attempts: 0,
+    verifiedAt: undefined
   }
   await writeStore(store)
 }
@@ -100,8 +101,22 @@ export async function verifyOtp(token: string, otp: string): Promise<boolean> {
     entry.attempts = (entry.attempts ?? 0) + 1
     store[key] = entry
     await writeStore(store)
+    return false
   }
-  return ok
+  entry.verifiedAt = Date.now()
+  store[key] = entry
+  await writeStore(store)
+  return true
+}
+
+/** Server-side proof that OTP was already verified for this token. */
+export async function isOtpVerified(token: string): Promise<boolean> {
+  if (!validateToken(token)) return false
+  const key = tokenKey(token)
+  const store = await readStore()
+  const entry = store[key]
+  if (!entry || entry.expires < Date.now()) return false
+  return typeof entry.verifiedAt === "number" && entry.verifiedAt > 0
 }
 
 /** Consume OTP after successful profile creation (one-time use). */

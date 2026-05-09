@@ -5,15 +5,28 @@
 export const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ?? "https://www.iqearners.online"
 
 export const SITE_NAME = "IQ Earners"
+/** Public support & integrations inbox (mailto, legal, AI prompts, structured data) */
+export const SUPPORT_EMAIL = "iqearnersteam@gmail.com"
 /** Parent / holding company — shown in footers, legal copy, and structured data */
 export const PARENT_COMPANY_NAME = "SynKora"
 export const SITE_TAGLINE = "India's Best Online Quiz Platform"
 
-/** Default OG image path (relative) - Next.js metadataBase makes it absolute */
-export const DEFAULT_OG_IMAGE = "/favicon-512.png"
+/** Site logo (SVG) — browser tab, PWA, JSON-LD Organization.logo */
+export const SITE_LOGO_PATH = "/logo.svg"
+export const SITE_LOGO_URL = `${SITE_URL}${SITE_LOGO_PATH}`
+
+/**
+ * Default share / preview image: generated PNG via `app/opengraph-image.tsx`
+ * (social crawlers need raster; `logo.svg` is used for favicons & structured data logo).
+ */
+export const DEFAULT_OG_IMAGE = "/opengraph-image"
 
 /** Full absolute URL for OG/Twitter images (required for some crawlers) */
-export const DEFAULT_OG_IMAGE_URL = `${SITE_URL}/favicon-512.png`
+export const DEFAULT_OG_IMAGE_URL = `${SITE_URL}/opengraph-image`
+
+/** Dimensions of generated OG/Twitter images (match opengraph-image.tsx) */
+export const OG_IMAGE_WIDTH = 1200
+export const OG_IMAGE_HEIGHT = 630
 
 /** Default meta description — AI-optimised for "online quiz india" cluster */
 export const DEFAULT_DESCRIPTION =

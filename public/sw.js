@@ -1,6 +1,8 @@
-const CACHE_NAME = "iq-earners-v2"
+const CACHE_NAME = "iq-earners-v3"
 const APP_SHELL = [
   "/",
+  "/more/admin-login",
+  "/more/admin-dashboard",
   "/favicon.ico",
   "/icon.svg"
 ]
@@ -21,10 +23,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event
+  if (request.method !== "GET") return
   const url = new URL(request.url)
   const isAPI = url.pathname.startsWith("/api/")
   const cacheFirstPaths = ["/", "/daily-quiz", "/leaderboard", "/prizes"]
   const isShell = cacheFirstPaths.includes(url.pathname)
+  const isAdminShell = url.pathname === "/more/admin-dashboard" || url.pathname === "/more/admin-login"
+  const isAdminApi = url.pathname.startsWith("/api/admin/") || url.pathname.startsWith("/api/stats")
   if (isAPI && (url.pathname.startsWith("/api/quizzes") || url.pathname.startsWith("/api/prizes"))) {
     event.respondWith(
       fetch(request).then(async (res) => {
@@ -40,8 +45,32 @@ self.addEventListener("fetch", (event) => {
     )
     return
   }
+  if (isAPI && isAdminApi) {
+    event.respondWith(
+      fetch(request)
+        .then(async (res) => {
+          if (res.ok) {
+            const copy = res.clone()
+            const cache = await caches.open(CACHE_NAME)
+            await cache.put(request, copy)
+          }
+          return res
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME)
+          const hit = await cache.match(request)
+          return (
+            hit ||
+            new Response(JSON.stringify({ ok: false, offline: true, data: null }), {
+              headers: { "Content-Type": "application/json" },
+            })
+          )
+        })
+    )
+    return
+  }
   // Network-first for app HTML so new deploys show up; cache only as offline fallback.
-  if (isShell) {
+  if (isShell || isAdminShell) {
     event.respondWith(
       fetch(request)
         .then((res) => {
@@ -52,7 +81,10 @@ self.addEventListener("fetch", (event) => {
           return res
         })
         .catch(() =>
-          caches.match(request).then((hit) => hit || caches.match("/")).catch(() => fetch(request))
+          caches
+            .match(request)
+            .then((hit) => hit || (isAdminShell ? caches.match("/more/admin-dashboard") : caches.match("/")))
+            .catch(() => fetch(request))
         )
     )
     return

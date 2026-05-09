@@ -11,6 +11,7 @@ import { getSettings } from "@/lib/settings"
 import { rateLimit } from "@/lib/rateLimit"
 import { chatCompletionForMockExam, isMockExamAiConfigured } from "@/lib/aiGateway"
 import { createServerSupabase } from "@/lib/supabase"
+import { normalizeQuestionStem } from "@/lib/quizQuestionDedupe"
 
 function tryParse(jsonStr: string): { modules?: any[]; questions?: any[] } | null {
   const fixed = jsonStr
@@ -47,7 +48,6 @@ function extractJson(text: string): { modules?: any[]; questions?: any[] } | any
   // Extract top-level object/array by bracket matching
   const first = trimmed[0]
   if (first === "{" || first === "[") {
-    const pairs: [string, string][] = [["{", "}"], ["[", "]"]]
     const stack: string[] = []
     let end = -1
     for (let i = 0; i < trimmed.length; i++) {
@@ -93,6 +93,18 @@ function extractJson(text: string): { modules?: any[]; questions?: any[] } | any
     } catch {}
   }
   return null
+}
+
+function extractQuestionObjectsFromText(text: string): any[] {
+  const src = String(text ?? "")
+  const out: any[] = []
+  const re = /\{[\s\S]*?"question"\s*:\s*"[\s\S]*?"options"\s*:\s*\[[\s\S]*?\][\s\S]*?"correct"\s*:\s*-?\d+[\s\S]*?\}/g
+  const matches = src.match(re) ?? []
+  for (const m of matches) {
+    const parsed = tryParse(m)
+    if (parsed && typeof parsed === "object") out.push(parsed)
+  }
+  return out
 }
 
 function normalizeQuestions(rows: any[]): { question: string; options: string[]; correct: number; explanation?: string }[] {
@@ -200,7 +212,6 @@ export async function POST(req: Request) {
     ]
   }
   const moduleNames = moduleConfig[courseId] || moduleConfig.mpc
-  const perModule = Math.max(5, Math.floor(count / moduleNames.length))
 
   const systemMsg = `Act as an expert exam paper setter for Indian competitive exams such as TS EAMCET, AP EAMCET, EMCERT, and APCERT.
 Your task is to generate high-quality multiple choice questions that closely follow the real exam pattern, syllabus, and difficulty level.
@@ -242,12 +253,30 @@ Generate exactly ${moduleNames.length} modules. Distribute questions evenly (~${
 MODULES: ${moduleNames.join(", ")}
 
 Ensure questions are diverse, cover important syllabus topics, and resemble the style of previous year exam questions.
+Within this batch, every question must be unique — do not repeat the same stem, fact, or trivial paraphrase.
 Explanations must teach the concept—not just state the answer.
 
 RESPONSE FORMAT: Your entire reply must be valid JSON only. Either:
 {"modules":[{"name":"ModuleName","questions":[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correct":0,"explanation":"..."}]}]}
 OR a flat list: {"questions":[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correct":0,"explanation":"..."}]}
 Do not wrap in markdown. Do not add any text before or after the JSON.`
+  }
+
+  function buildRepairPrompt(raw: string, batchCount: number): string {
+    return `You returned malformed JSON previously. Repair and return valid JSON only.
+
+Requirements:
+- Exactly ${batchCount} questions total
+- 4 options per question
+- correct index must be 0-3
+- Keep explanations short and useful
+- Output ONLY JSON, no markdown, no extra text
+
+Return in this format:
+{"modules":[{"name":"ModuleName","questions":[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]}]}
+
+Malformed input to repair:
+${raw}`
   }
 
   try {
@@ -260,6 +289,7 @@ Do not wrap in markdown. Do not add any text before or after the JSON.`
 
     const allModules: { name: string; questions: { question: string; options: string[]; correct: number; explanation?: string }[] }[] = []
     const nameToIdx = new Map<string, number>()
+    const globalQuestionStems = new Set<string>()
 
     for (let i = 0; i < batches.length; i++) {
       const batchCount = batches[i]
@@ -272,7 +302,31 @@ Do not wrap in markdown. Do not add any text before or after the JSON.`
         return NextResponse.json({ ok: false, error: result.error }, { status: 502 })
       }
       const parsed = extractJson(result.content)
-      const batchModules = toModules(parsed, moduleNames)
+      let batchModules = toModules(parsed, moduleNames)
+      if (batchModules.length === 0) {
+        // Fallback: salvage standalone question objects from noisy output.
+        const salvaged = normalizeQuestions(extractQuestionObjectsFromText(result.content))
+        if (salvaged.length > 0) {
+          batchModules = toModules({ questions: salvaged }, moduleNames)
+        }
+      }
+      if (batchModules.length === 0) {
+        // One automatic repair retry before failing the whole request.
+        const repair = await chatCompletionForMockExam(
+          [{ role: "system", content: systemMsg }, { role: "user", content: buildRepairPrompt(result.content, batchCount) }],
+          { temperature: 0.1, max_tokens: maxTokens }
+        )
+        if (repair.ok) {
+          const parsedRepair = extractJson(repair.content)
+          batchModules = toModules(parsedRepair, moduleNames)
+          if (batchModules.length === 0) {
+            const salvagedRepair = normalizeQuestions(extractQuestionObjectsFromText(repair.content))
+            if (salvagedRepair.length > 0) {
+              batchModules = toModules({ questions: salvagedRepair }, moduleNames)
+            }
+          }
+        }
+      }
       if (batchModules.length === 0) {
         return NextResponse.json({
           ok: false,
@@ -288,6 +342,9 @@ Do not wrap in markdown. Do not add any text before or after the JSON.`
           allModules.push({ name: m.name, questions: [] })
         }
         for (const q of m.questions) {
+          const stem = normalizeQuestionStem(q.question)
+          if (!stem || globalQuestionStems.has(stem)) continue
+          globalQuestionStems.add(stem)
           allModules[idx].questions.push(q)
         }
       }

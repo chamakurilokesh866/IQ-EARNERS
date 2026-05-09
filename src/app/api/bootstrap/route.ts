@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+
+export const dynamic = "force-dynamic"
 import { getSettings } from "@/lib/settings"
 import { getProfiles } from "@/lib/profiles"
 import { getPayments } from "@/lib/payments"
@@ -73,10 +75,20 @@ export async function GET(req: Request) {
       p.status === "success" &&
       (p.profileId === uid || (username && String(p?.meta?.username ?? p?.meta?.name ?? p?.meta?.customerName ?? "").toLowerCase() === username.toLowerCase()))
     )
-    
-    const hasPaidProfile = !!me || (username && safeProfiles.some((p) => String(p.username || "").toLowerCase() === username.toLowerCase() && (p.paid === "P" || p.memberId)))
-    
-    let paid = !!me || hasPaidPayment || hasPaidProfile
+
+    const profileMarkedPaid = (p: (typeof safeProfiles)[number]) => p && (p.paid === "P" || p.memberId)
+    const mePaid = me && profileMarkedPaid(me)
+    const hasPaidProfile =
+      (username &&
+        safeProfiles.some(
+          (p) =>
+            String(p.username || "").toLowerCase() === username.toLowerCase() && profileMarkedPaid(p)
+        )) ||
+      false
+
+    // Keep bootstrap consistent with middleware/login cookies to prevent false intro redirects
+    // when DB linkage lags (e.g., profile/payment sync race right after login).
+    let paid = Boolean(mePaid || hasPaidPayment || hasPaidProfile || (paidCookie && uid))
     const round = Number(safeSettings?.round ?? 1)
     const prizeCompleted = Boolean(safeSettings?.prizeCompleted)
     
@@ -95,7 +107,6 @@ export async function GET(req: Request) {
       })
       if (enrollments.length > 0) {
         enrollment = enrollments[0]
-        if (round >= 2) paid = true
       }
     } catch (e) {
       console.error("[bootstrap] Enrollment fetch failed:", e)

@@ -27,10 +27,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Verification failed. Please try again." }, { status: 400 })
     }
 
-    const emailOrUsername = String(body?.email ?? body?.username ?? "").trim()
-    if (!emailOrUsername) return NextResponse.json({ ok: false, error: "Email or username is required" }, { status: 400 })
+    const rawIdentity = String(body?.email ?? body?.username ?? "").trim()
+    if (!rawIdentity) return NextResponse.json({ ok: false, error: "Email or username is required" }, { status: 400 })
 
-    const isEmail = EMAIL_REGEX.test(emailOrUsername)
+    const isEmail = EMAIL_REGEX.test(rawIdentity)
+    const emailOrUsername = isEmail ? rawIdentity.toLowerCase() : rawIdentity
     const profile = isEmail
       ? await getProfileByEmail(emailOrUsername)
       : await getProfileByUsername(emailOrUsername)
@@ -66,13 +67,33 @@ export async function POST(req: Request) {
 
     const sent = await sendEmail({
       to: toEmail,
-      subject: "IQ Earners – Password rest code",
+      subject: "IQ Earners – Password reset code",
       html: htmlTemplate,
       text: `Your password reset code is: ${otp}. Enter this code to set a new password. Code expires in 10 minutes.`
     })
 
-    // Return success without the OTP itself (security)
-    return NextResponse.json({ ok: true, usernameHint: isEmail ? username : undefined })
+    if (!sent.ok) {
+      return NextResponse.json(
+        { ok: false, error: sent.error || "Could not send email. Check configuration or try again later." },
+        { status: 500 }
+      )
+    }
+
+    const mask = (e: string) => {
+      const t = e.trim()
+      const at = t.indexOf("@")
+      if (at < 1) return "your email"
+      const u = t.slice(0, at)
+      const d = t.slice(at + 1)
+      const head = u.slice(0, Math.min(2, u.length))
+      return `${head}•••@${d}`
+    }
+
+    return NextResponse.json({
+      ok: true,
+      usernameHint: username,
+      emailMasked: mask(toEmail)
+    })
   } catch {
     return NextResponse.json({ ok: false, error: "Failed to send code." }, { status: 500 })
   }

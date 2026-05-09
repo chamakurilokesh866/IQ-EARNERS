@@ -6,11 +6,12 @@ import { getProfiles, getProfileByUid, getProfileByUsername, getProfileByEmail, 
 import { findPayment, updatePayment } from "@/lib/payments"
 import { verifyUsernameToken } from "@/lib/usernameToken"
 import { hashPassword } from "@/lib/password"
-import { verifyOtp, consumeOtp, validateToken } from "@/lib/createUsernameOtp"
+import { isOtpVerified, consumeOtp, validateToken } from "@/lib/createUsernameOtp"
 import { sendEmail, getLoginUrl } from "@/lib/email"
 import crypto from "crypto"
 import { validateCsrf } from "@/lib/csrf"
 import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import { isCashfreeOrderPaidLive, syncCashfreeOrderIfPaid } from "@/lib/cashfreeSyncOrder"
 
 export async function GET() {
   const cookieStore = await cookies()
@@ -36,23 +37,26 @@ async function ensureReferralCode(prof: Profile): Promise<string> {
   return formatReferralCode(Number(Date.now().toString().slice(-5)))
 }
 
-async function verifyPaymentProof(proof: { orderId?: string; paymentId?: string }): Promise<boolean> {
-  const orderId = typeof proof?.orderId === "string" ? proof.orderId.trim() : ""
-  const paymentId = typeof proof?.paymentId === "string" ? proof.paymentId.trim() : ""
-  if (!orderId && !paymentId) return false
-  const payment = orderId
-    ? await findPayment({ orderId })
-    : await findPayment({ paymentId: paymentId as string })
-  // Fix: Ensure payment is successful AND not already linked to a profile
-  return !!payment && payment.status === "success" && !payment.profileId
-}
-
 async function verifyAndConsumeToken(token: string): Promise<{ paymentId: string } | null> {
   const payload = verifyUsernameToken(token)
   if (!payload) return null
-  const payment = payload.p
+  let payment = payload.p
     ? await findPayment({ paymentId: payload.p })
     : await findPayment({ orderId: payload.o })
+  if (payment && payment.status === "pending" && payment.gateway === "cashfree") {
+    const orderForSync = (payload.o || payment.orderId || payment.cashfreeOrderId || "").trim()
+    if (orderForSync) {
+      const tid = typeof (payment.meta as Record<string, unknown> | undefined)?.tournamentId === "string"
+        ? String((payment.meta as Record<string, unknown>).tournamentId)
+        : null
+      await syncCashfreeOrderIfPaid(orderForSync, tid)
+      payment = payload.p ? await findPayment({ paymentId: payload.p }) : await findPayment({ orderId: payload.o })
+    }
+  }
+  if (payment?.gateway === "cashfree") {
+    const oid = (payload.o || payment.orderId || payment.cashfreeOrderId || payment.paymentSessionId || "").trim()
+    if (oid && !(await isCashfreeOrderPaidLive(oid))) return null
+  }
   if (!payment || payment.status !== "success" || payment.profileId) return null
   return { paymentId: payment.id }
 }
@@ -74,8 +78,10 @@ export async function POST(req: Request) {
   const allowed = /^[A-Za-z0-9._\-@]{6,20}$/
   if (!allowed.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
   if (!/[A-Z]/.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
+  if (!/[a-z]/.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
   if (!/\d/.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
   if (!/[._\-@]/.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
+  if (/^[._\-@]|[._\-@]$/.test(username)) return NextResponse.json({ ok: false, error: "invalid_username" }, { status: 400 })
   const cookieStore = await cookies()
   const currentUid = cookieStore.get("uid")?.value
   const uid = currentUid ?? crypto.randomBytes(16).toString("hex")
@@ -109,36 +115,32 @@ export async function POST(req: Request) {
   let tokenPaymentId: string | null = null
 
   if (!current) {
-    if (createUsernameToken) {
-      if (!validateToken(createUsernameToken)) {
-        return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 400 })
-      }
-      const otp = String(body?.otp ?? "").trim().replace(/\D/g, "")
-      if (otp.length !== 4 && otp.length !== 6) {
-        return NextResponse.json({ ok: false, error: "OTP verification required. Enter the code shown above." }, { status: 403 })
-      }
-      const otpValid = await verifyOtp(createUsernameToken, otp)
-      if (!otpValid) {
-        return NextResponse.json({ ok: false, error: "OTP verification required. Enter the code shown above." }, { status: 403 })
-      }
-      const tokenResult = await verifyAndConsumeToken(createUsernameToken)
-      if (!tokenResult) {
-        return NextResponse.json({ ok: false, error: "Invalid or expired token. Complete payment again." }, { status: 403 })
-      }
-      await consumeOtp(createUsernameToken)
-      tokenPaymentId = tokenResult.paymentId
-    } else {
-      const proof = body?.paymentProof as { orderId?: string; paymentId?: string } | undefined
-      if (!(proof && (proof.orderId || proof.paymentId))) {
-        return NextResponse.json({ ok: false, error: "Payment required. Complete payment first." }, { status: 403 })
-      }
-      const valid = await verifyPaymentProof(proof)
-      if (!valid) {
-        return NextResponse.json({ ok: false, error: "Invalid or incomplete payment. Pay first, then create username." }, { status: 403 })
-      }
+    // New accounts: only after Cashfree success (webhook/sync) or admin-approved manual payment.
+    // No client-supplied paymentProof — prevents forged orderIds and back-navigation replay.
+    if (!createUsernameToken || !createUsernameToken.trim()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Use the secure link from your payment confirmation to create your account."
+        },
+        { status: 403 }
+      )
     }
+    if (!validateToken(createUsernameToken)) {
+      return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 400 })
+    }
+    const otpVerified = await isOtpVerified(createUsernameToken)
+    if (!otpVerified) {
+      return NextResponse.json({ ok: false, error: "OTP verification required. Verify your email first." }, { status: 403 })
+    }
+    const tokenResult = await verifyAndConsumeToken(createUsernameToken)
+    if (!tokenResult) {
+      return NextResponse.json({ ok: false, error: "Invalid or expired token. Complete payment again." }, { status: 403 })
+    }
+    await consumeOtp(createUsernameToken)
+    tokenPaymentId = tokenResult.paymentId
   }
-  const createdAfterPayment = !!(tokenPaymentId || (body?.paymentProof && (body.paymentProof.orderId || body.paymentProof.paymentId)))
+  const createdAfterPayment = !!tokenPaymentId
   const entry: Profile = {
     uid,
     username,
@@ -152,7 +154,7 @@ export async function POST(req: Request) {
       memberId: await generateMemberId()
     })
   }
-  if (createUsernameToken && rawPassword) {
+  if (isNewUser && rawPassword) {
     entry.passwordHash = hashPassword(rawPassword)
   }
   const ok = await upsertProfile(entry)
@@ -186,16 +188,6 @@ export async function POST(req: Request) {
     const pmt = await findPayment({ paymentId: tokenPaymentId })
     const meta = { ...((pmt?.meta || {}) as Record<string, unknown>), username }
     await updatePayment(tokenPaymentId, { profileId: uid, meta })
-  } else if (body?.paymentProof?.orderId || body?.paymentProof?.paymentId) {
-    const payment = await findPayment(
-      body.paymentProof.orderId
-        ? { orderId: body.paymentProof.orderId }
-        : { paymentId: body.paymentProof.paymentId }
-    )
-    if (payment && payment.status === "success") {
-      const meta = { ...((payment.meta || {}) as Record<string, unknown>), username }
-      await updatePayment(payment.id, { profileId: uid, meta })
-    }
   }
 
   // Handle tournament enrollment directly if provided
@@ -275,7 +267,7 @@ export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true, data: entry })
   const cookieOpts = cookieOptions({ maxAge: 60 * 60 * 24 * 365 })
   const setUid = !cookieStore.get("uid")?.value
-  const setPaid = !cookieStore.get("paid")?.value && (tokenPaymentId || body?.paymentProof?.orderId || body?.paymentProof?.paymentId)
+  const setPaid = !cookieStore.get("paid")?.value && !!tokenPaymentId
   if (setUid) res.cookies.set("uid", uid, cookieOpts)
   if (setPaid) res.cookies.set("paid", "1", cookieOpts)
   if (setUid || setPaid) res.cookies.set("hs", "1", { ...cookieOpts, httpOnly: false })

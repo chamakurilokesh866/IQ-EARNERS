@@ -37,11 +37,10 @@ export async function GET() {
   const admin = await isAdmin()
   if (!admin) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
 
-  const [payments, participants, userStats, quizzes] = await Promise.all([
+  const [payments, participants, userStats] = await Promise.all([
     readJSON(path.join(ROOT, "payments.json")),
     readJSON(path.join(ROOT, "participants.json")),
-    readUserStats(),
-    readJSON(path.join(ROOT, "quizzes.json"))
+    readUserStats()
   ])
 
   type ActivityItem = { id: string; type: string; icon: string; title: string; meta: string; when: number; severity?: string }

@@ -67,12 +67,12 @@ export async function isIpBlocked(ip: string): Promise<BlockedIp | null> {
   return null
 }
 
-export async function blockIp(ip: string, alertId?: string): Promise<boolean> {
+export async function blockIp(ip: string, alertId?: string, reason?: string): Promise<boolean> {
   const supabase = createServerSupabase()
   if (!supabase) return false
   try {
     const { error } = await supabase.from("blocked_ips").upsert(
-      { ip, reason: "Unauthorized use of developer tools", blocked_at: Date.now(), alert_id: alertId ?? null },
+      { ip, reason: reason || "Unauthorized use of developer tools", blocked_at: Date.now(), alert_id: alertId ?? null },
       { onConflict: "ip" }
     )
     if (!error && alertId) {
@@ -129,6 +129,21 @@ export async function getBlockedIps(): Promise<BlockedIp[]> {
     }
   } catch { }
   return []
+}
+
+export async function getRecentInspectAlertCount(ip: string, windowMs = 30 * 60 * 1000): Promise<number> {
+  const supabase = createServerSupabase()
+  if (!supabase || !ip) return 0
+  try {
+    const since = Date.now() - windowMs
+    const { count, error } = await supabase
+      .from("inspect_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("ip", ip)
+      .gte("created_at", since)
+    if (!error) return Number(count ?? 0)
+  } catch { }
+  return 0
 }
 
 

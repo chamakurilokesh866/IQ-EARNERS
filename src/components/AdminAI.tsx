@@ -627,6 +627,13 @@ export default function AdminAI({ stats, onNavigate }: { stats?: Record<string, 
     const [seoAudit, setSeoAudit] = useState<{ loading: boolean; data?: { score: number; grade: string; summary: string; issues: { severity: string; issue: string; fix: string }[] } | null }>({ loading: false })
     const [clearCacheToast, setClearCacheToast] = useState<string | null>(null)
     const [insightSearchQuery, setInsightSearchQuery] = useState("")
+    const [proctoringTimeline, setProctoringTimeline] = useState<Array<{ id: string; when: number; username: string; type: string; reason: string; risk: number }>>([])
+    const [proctoringQueue, setProctoringQueue] = useState<Array<{ username: string; events: number; avgRisk: number; cumulativeRisk: number; lastEventAt: number; topReasons: string[]; recommendedAction: "block_review" | "watchlist" }>>([])
+    const [queueThreshold, setQueueThreshold] = useState<number>(180)
+    const [queueBusyUser, setQueueBusyUser] = useState<string | null>(null)
+    const [agentCommand, setAgentCommand] = useState("")
+    const [agentRunning, setAgentRunning] = useState(false)
+    const [agentStatus, setAgentStatus] = useState<string | null>(null)
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -644,6 +651,48 @@ export default function AdminAI({ stats, onNavigate }: { stats?: Record<string, 
             .then((j) => setAiMode(j?.ok ? "real" : "mock"))
             .catch(() => setAiMode("mock"))
     }, [])
+
+    useEffect(() => {
+        fetch("/api/admin/proctoring-timeline?limit=20", { cache: "no-store", credentials: "include" })
+            .then((r) => r.json())
+            .then((j) => setProctoringTimeline(Array.isArray(j?.data) ? j.data : []))
+            .catch(() => setProctoringTimeline([]))
+    }, [])
+
+    const loadProctoringQueue = useCallback(() => {
+        fetch(`/api/admin/proctoring-review-queue?lookback=400&threshold=${encodeURIComponent(String(queueThreshold))}`, { cache: "no-store", credentials: "include" })
+            .then((r) => r.json())
+            .then((j) => {
+                setProctoringQueue(Array.isArray(j?.data) ? j.data : [])
+                if (typeof j?.threshold === "number") setQueueThreshold(j.threshold)
+            })
+            .catch(() => setProctoringQueue([]))
+    }, [queueThreshold])
+
+    useEffect(() => {
+        loadProctoringQueue()
+    }, [loadProctoringQueue])
+
+    const queueAction = useCallback(async (username: string, action: "block" | "unblock") => {
+        setQueueBusyUser(username)
+        try {
+            const command = action === "block" ? `block user ${username}` : `unblock user ${username}`
+            const r = await fetch("/api/admin/ai-agent/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ command }),
+            })
+            const j = await r.json().catch(() => ({}))
+            const feedback = j?.ok ? `✅ ${j?.message || "Done"}` : `❌ ${j?.error || "Failed"}`
+            setMessages((prev) => [...prev, { id: uid(), role: "assistant", content: `🧾 **Queue action**: ${feedback}`, timestamp: new Date() }])
+            loadProctoringQueue()
+        } catch {
+            setMessages((prev) => [...prev, { id: uid(), role: "assistant", content: "❌ Queue action failed due to network/server error.", timestamp: new Date() }])
+        } finally {
+            setQueueBusyUser(null)
+        }
+    }, [loadProctoringQueue])
 
     const sendMessage = useCallback(async (text: string) => {
         if (!text.trim()) return
@@ -781,6 +830,58 @@ export default function AdminAI({ stats, onNavigate }: { stats?: Record<string, 
         setActiveSection("chat")
         setTimeout(() => sendMessage("Homepage content suggestions for today"), 100)
     }
+
+    const executeAgentCommand = useCallback(async () => {
+        const cmd = agentCommand.trim()
+        if (!cmd) return
+        setAgentRunning(true)
+        setAgentStatus(null)
+        try {
+            const res = await fetch("/api/admin/ai-agent/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ command: cmd }),
+            })
+            const j = await res.json().catch(() => ({}))
+            if (!res.ok || !j?.ok) {
+                setAgentStatus(`❌ ${String(j?.error || "Command failed")}`)
+                return
+            }
+            const msg = String(j?.message || "Command applied.")
+            setAgentStatus(`✅ ${msg}`)
+            setAgentCommand("")
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: uid(),
+                    role: "assistant",
+                    content: `🛠️ **Agent execution result**\n\n${msg}`,
+                    timestamp: new Date(),
+                },
+            ])
+            try {
+                const r = await fetch("/api/stats", { cache: "no-store", credentials: "include" })
+                const s = await r.json().catch(() => ({}))
+                if (s?.ok && s?.data) {
+                    setMessages((prev) => [
+                        ...prev,
+                        {
+                            id: uid(),
+                            role: "assistant",
+                            content: `ℹ️ Updated settings snapshot:\n- Entry fee: ₹${Number(s?.data?.entryFee ?? 0)}\n- Maintenance: ${Boolean(s?.data?.maintenanceMode) ? "ON" : "OFF"}\n- VIP modal: ${Boolean(s?.data?.vipModalEnabled) ? "ON" : "OFF"}`,
+                            timestamp: new Date(),
+                        },
+                    ])
+                }
+            } catch { }
+        } catch {
+            setAgentStatus("❌ Network error while executing command.")
+        } finally {
+            setAgentRunning(false)
+            setTimeout(() => setAgentStatus(null), 3500)
+        }
+    }, [agentCommand])
 
     const copyChatToClipboard = () => {
         const text = messages.map((m) => `${m.role === "user" ? "You" : "AI"}: ${m.content}`).join("\n\n")
@@ -995,6 +1096,97 @@ export default function AdminAI({ stats, onNavigate }: { stats?: Record<string, 
                                 <div className="text-center py-4 text-white/40 text-sm">✅ No critical or warning items — site is healthy!</div>
                             )}
                         </div>
+                    </div>
+
+                    <div className="admin-card p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="font-black text-white uppercase tracking-widest text-xs">🛡️ Proctoring Risk Timeline</span>
+                            <span className="text-[10px] text-white/40">{proctoringTimeline.length} events</span>
+                        </div>
+                        {proctoringTimeline.length === 0 ? (
+                            <div className="text-sm text-white/45">No recent integrity events.</div>
+                        ) : (
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                {proctoringTimeline.slice(0, 12).map((e) => (
+                                    <div key={e.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="text-xs font-black text-white">@{e.username || "unknown"}</div>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                                e.risk >= 70 ? "bg-red-500/15 text-red-300" : e.risk >= 40 ? "bg-amber-500/15 text-amber-300" : "bg-emerald-500/15 text-emerald-300"
+                                            }`}>
+                                                Risk {e.risk}
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 text-[11px] text-white/70">{e.type}</div>
+                                        <div className="mt-0.5 text-[11px] text-white/45 line-clamp-2">{e.reason}</div>
+                                        <div className="mt-1 text-[10px] text-white/30">{e.when ? new Date(e.when).toLocaleString() : "—"}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="admin-card p-5">
+                        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                            <span className="font-black text-white uppercase tracking-widest text-xs">🚨 Proctoring Review Queue</span>
+                            <div className="flex items-center gap-2">
+                                <label className="text-[10px] text-white/45 uppercase tracking-widest">Threshold</label>
+                                <input
+                                    type="number"
+                                    min={40}
+                                    max={1000}
+                                    value={queueThreshold}
+                                    onChange={(e) => setQueueThreshold(Math.max(40, Math.min(1000, Number(e.target.value) || 180)))}
+                                    className="w-20 rounded-md bg-white/5 border border-white/10 px-2 py-1 text-xs text-white"
+                                />
+                                <button type="button" onClick={loadProctoringQueue} className="text-[10px] px-2 py-1 rounded bg-white/10 border border-white/15 text-white/70 hover:text-white">Refresh</button>
+                            </div>
+                        </div>
+                        {proctoringQueue.length === 0 ? (
+                            <div className="text-sm text-white/45">No users currently in review queue.</div>
+                        ) : (
+                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                {proctoringQueue.map((q) => (
+                                    <div key={q.username} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="text-xs font-black text-white">@{q.username}</div>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                                q.cumulativeRisk >= queueThreshold ? "bg-red-500/15 text-red-300" : "bg-amber-500/15 text-amber-300"
+                                            }`}>
+                                                {q.cumulativeRisk} total risk
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 text-[11px] text-white/60">
+                                            {q.events} events • avg risk {q.avgRisk} • {q.lastEventAt ? new Date(q.lastEventAt).toLocaleString() : "—"}
+                                        </div>
+                                        {q.topReasons.length > 0 ? (
+                                            <div className="mt-1 text-[11px] text-white/45 line-clamp-2">{q.topReasons.join(" | ")}</div>
+                                        ) : null}
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={queueBusyUser === q.username}
+                                                onClick={() => queueAction(q.username, "block")}
+                                                className="text-[10px] font-black px-2.5 py-1.5 rounded bg-red-500/20 border border-red-500/30 text-red-200 disabled:opacity-50"
+                                            >
+                                                {queueBusyUser === q.username ? "..." : "Block"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={queueBusyUser === q.username}
+                                                onClick={() => queueAction(q.username, "unblock")}
+                                                className="text-[10px] font-black px-2.5 py-1.5 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 disabled:opacity-50"
+                                            >
+                                                Unblock
+                                            </button>
+                                            <span className="text-[10px] text-white/35 uppercase tracking-widest">
+                                                {q.recommendedAction === "block_review" ? "Recommend: Block review" : "Recommend: Watchlist"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* AI Automated Generation Card - New Feature */}
@@ -1217,6 +1409,38 @@ export default function AdminAI({ stats, onNavigate }: { stats?: Record<string, 
             {/* ── CHAT Section ──────────────────────────────────────────────────── */}
             {activeSection === "chat" && (
                 <div className="space-y-4">
+                    <div className="admin-card p-4 border-cyan-500/20 bg-cyan-500/[0.03]">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                            <div>
+                                <div className="text-sm font-black text-white">Mini AI Agent (apply website changes)</div>
+                                <p className="text-[11px] text-white/45 mt-0.5">Examples: <code className="text-cyan-300">set entry fee to 120</code>, <code className="text-cyan-300">maintenance mode on</code>, <code className="text-cyan-300">vip modal off</code>, <code className="text-cyan-300">clear cache</code>, <code className="text-cyan-300">block user demo123</code></p>
+                            </div>
+                            {agentStatus ? <div className="text-xs text-white/80">{agentStatus}</div> : null}
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                            <input
+                                value={agentCommand}
+                                onChange={(e) => setAgentCommand(e.target.value)}
+                                placeholder="Type admin command..."
+                                className="flex-1 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 focus:border-cyan-500/40"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        void executeAgentCommand()
+                                    }
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => void executeAgentCommand()}
+                                disabled={agentRunning || !agentCommand.trim()}
+                                className="shrink-0 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-200 px-4 text-sm font-semibold disabled:opacity-50"
+                            >
+                                {agentRunning ? "Applying..." : "Apply"}
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Quick prompt pills + Copy chat */}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap gap-2">

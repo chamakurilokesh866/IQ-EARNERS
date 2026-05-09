@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { findPayment } from "@/lib/payments"
 import { verifyUsernameToken } from "@/lib/usernameToken"
+import { isCashfreeOrderPaidLive, syncCashfreeOrderIfPaid } from "@/lib/cashfreeSyncOrder"
 
 /**
  * GET /api/payment/validate-username-token?token=...
@@ -20,11 +21,36 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "Invalid or expired token" }, { status: 403 })
     }
 
-    const payment = payload.p
+    let payment = payload.p
       ? await findPayment({ paymentId: payload.p })
       : await findPayment({ orderId: payload.o })
     if (!payment) {
       return NextResponse.json({ ok: false, error: "Payment not found" }, { status: 404 })
+    }
+    if (payment.status === "pending" && payment.gateway === "cashfree") {
+      const orderForSync = (payload.o || payment.orderId || payment.cashfreeOrderId || "").trim()
+      if (orderForSync) {
+        const tid =
+          typeof (payment.meta as Record<string, unknown> | undefined)?.tournamentId === "string"
+            ? String((payment.meta as Record<string, unknown>).tournamentId)
+            : null
+        await syncCashfreeOrderIfPaid(orderForSync, tid)
+        payment = payload.p
+          ? await findPayment({ paymentId: payload.p })
+          : await findPayment({ orderId: payload.o })
+      }
+    }
+    if (!payment) {
+      return NextResponse.json({ ok: false, error: "Payment not found" }, { status: 404 })
+    }
+    if (payment.gateway === "cashfree") {
+      const oid = (payload.o || payment.orderId || payment.cashfreeOrderId || payment.paymentSessionId || "").trim()
+      if (oid) {
+        const livePaid = await isCashfreeOrderPaidLive(oid)
+        if (!livePaid) {
+          return NextResponse.json({ ok: false, error: "Payment not confirmed" }, { status: 403 })
+        }
+      }
     }
     if (payment.status !== "success") {
       return NextResponse.json({ ok: false, error: "Payment not confirmed" }, { status: 403 })

@@ -1,4 +1,6 @@
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
+import { cookieOptions } from "./cookieOptions"
 
 /**
  * Validates that the request Origin matches the request host (reduces CSRF risk).
@@ -28,6 +30,66 @@ export async function requireAdmin() {
     return { ok: false as const, error: "Forbidden", status: 403 }
   }
   return { ok: true as const }
+}
+
+export type AdminPermission =
+  | "payment.approve"
+  | "payment.deny"
+  | "payout.execute"
+  | "payout.reject"
+  | "security.view"
+
+const ADMIN_ROLE_COOKIE = "admin_role"
+const ADMIN_AUTH_AT_COOKIE = "admin_auth_at"
+const ROLE_PERMS: Record<string, AdminPermission[]> = {
+  super: ["payment.approve", "payment.deny", "payout.execute", "payout.reject", "security.view"],
+  finance: ["payment.approve", "payment.deny", "payout.execute", "payout.reject", "security.view"],
+  ops: ["payment.approve", "payment.deny", "security.view"],
+  support: ["security.view"],
+  content: [],
+}
+
+export function getAdminRoleFromEnv(): string {
+  return (process.env.ADMIN_ACCESS_ROLE ?? "super").trim().toLowerCase()
+}
+
+export async function requireAdminPermission(permission: AdminPermission) {
+  const base = await requireAdmin()
+  if (!base.ok) return base
+  const store = await cookies()
+  const role = (store.get(ADMIN_ROLE_COOKIE)?.value || "super").toLowerCase()
+  const perms = ROLE_PERMS[role] ?? ROLE_PERMS.super
+  if (!perms.includes(permission)) {
+    return { ok: false as const, error: "Insufficient permission", status: 403 }
+  }
+  return { ok: true as const, role }
+}
+
+/**
+ * How long after login/last refresh `admin_auth_at` remains valid for sensitive admin actions.
+ * Must stay in sync with login cookie maxAge (24h) so dashboard use does not fail mid-session.
+ */
+export const ADMIN_SENSITIVE_MAX_AGE_SEC = 24 * 60 * 60
+
+export async function requireRecentAdminAuth(maxAgeSec = ADMIN_SENSITIVE_MAX_AGE_SEC) {
+  const base = await requireAdmin()
+  if (!base.ok) return base
+  const store = await cookies()
+  const raw = store.get(ADMIN_AUTH_AT_COOKIE)?.value ?? ""
+  const ts = parseInt(raw, 10)
+  if (!Number.isFinite(ts)) {
+    return { ok: false as const, error: "Recent authentication required", status: 401 }
+  }
+  if (Date.now() - ts > maxAgeSec * 1000) {
+    return { ok: false as const, error: "Session too old for this action", status: 401 }
+  }
+  return { ok: true as const }
+}
+
+/** Slide `admin_auth_at` on successful mutating admin responses so long sessions stay valid. */
+export function withRefreshedAdminAuth(res: NextResponse): NextResponse {
+  res.cookies.set(ADMIN_AUTH_AT_COOKIE, String(Date.now()), cookieOptions({ maxAge: 60 * 60 * 24 }))
+  return res
 }
 
 export async function getUid() {

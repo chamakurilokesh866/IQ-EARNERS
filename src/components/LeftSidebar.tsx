@@ -13,7 +13,7 @@ import FlagImg from "./FlagImg"
 import logoPng from "../app/prizes/icon.png"
 import NavShellBackground from "./NavShellBackground"
 
-const SIDEBAR_WIDTH = 72
+const SIDEBAR_WIDTH = 82
 
 const ICONS = {
   home: (
@@ -108,7 +108,7 @@ export default function LeftSidebar() {
         ref={ref}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
-        className="relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden bg-primary/25 text-primary border border-primary/40 w-full transition-colors hover:bg-primary/30"
+        className="sidebar-neon-item sidebar-neon-login relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden bg-primary/25 text-primary border border-primary/40 w-full transition-colors hover:bg-primary/30"
       >
         {hover && (
           <div
@@ -150,7 +150,7 @@ export default function LeftSidebar() {
         onClick={() => performLogout()}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
-        className="relative flex flex-col items-center gap-1 py-2 px-2 rounded-xl overflow-hidden transition-colors w-full text-white/50 hover:text-red-400"
+        className="sidebar-neon-item sidebar-neon-logout relative flex flex-col items-center gap-1 py-2 px-2 rounded-xl overflow-hidden transition-colors w-full text-white/50 hover:text-red-400"
         aria-label="Log out"
       >
         {hover && (
@@ -209,7 +209,7 @@ export default function LeftSidebar() {
         ref={ref}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
-        className={`relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden w-full transition-colors duration-200 ${
+        className={`sidebar-neon-item ${active ? "sidebar-neon-item-active" : ""} relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden w-full transition-colors duration-200 ${
           active ? "text-primary" : "text-white/65 hover:text-white"
         }`}
       >
@@ -274,7 +274,7 @@ export default function LeftSidebar() {
         ref={ref}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
-        className={`relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden transition-colors duration-200 ${
+        className={`sidebar-neon-item ${active ? "sidebar-neon-item-active" : ""} relative flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-xl overflow-hidden transition-colors duration-200 ${
           active ? "text-primary" : "text-white/65 hover:text-white"
         }`}
       >
@@ -305,7 +305,7 @@ export default function LeftSidebar() {
 
   return (
     <aside
-      className="fixed hidden lg:flex flex-col left-4 top-4 bottom-4 w-[72px] z-30 rounded-2xl border border-white/[0.12] bg-[#060a14]/78 py-3 items-center gap-1.5 overflow-hidden shadow-2xl shadow-black/40 backdrop-blur-xl supports-[backdrop-filter]:bg-[#060a14]/65"
+      className="ui-chrome-sidebar sidebar-neon-shell fixed hidden lg:flex flex-col left-4 top-4 bottom-4 w-[82px] z-30 rounded-2xl border border-white/[0.12] bg-[#060a14]/78 py-3 items-center gap-1.5 overflow-hidden shadow-2xl shadow-black/40 backdrop-blur-xl supports-[backdrop-filter]:bg-[#060a14]/65"
       aria-label="Main navigation"
     >
       <NavShellBackground variant="dark" />
@@ -331,15 +331,6 @@ export default function LeftSidebar() {
       {/* Notifications – outside nav so dropdown isn't clipped by overflow-x-hidden */}
       <div className="shrink-0 mt-2 flex flex-col items-center gap-2">
         <NotificationBell />
-        <div className="w-full flex justify-center px-2">
-          <TransitionLink
-            href={withSid("/user?tab=ContactUs")}
-            className="relative z-10 flex flex-col items-center justify-center gap-0.5 w-full py-2 px-1.5 rounded-xl border border-white/[0.12] bg-white/[0.06] text-[9px] font-black uppercase tracking-wide text-white/85 hover:bg-white/12 hover:text-white transition-colors"
-            aria-label="Help and support"
-          >
-            Help
-          </TransitionLink>
-        </div>
       </div>
 
       {/* Profile (merged with Dashboard) / Log in at bottom */}

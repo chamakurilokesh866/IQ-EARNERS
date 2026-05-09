@@ -6,36 +6,13 @@
  */
 
 import { NextResponse } from "next/server"
-import crypto from "crypto"
 import { findPayment, addPayment, updatePayment } from "@/lib/payments"
 import { unblockUser } from "@/lib/blocked"
 import { recordUnblocked } from "@/lib/unblocked"
-
-function verifyCashfreeSignature(
-  rawBody: string,
-  signature: string | null,
-  timestamp: string | null,
-  secretKey: string
-): boolean {
-  if (!signature || !timestamp || !secretKey) return false
-  try {
-    const signedPayload = timestamp + rawBody
-    const expected = crypto
-      .createHmac("sha256", secretKey)
-      .update(signedPayload)
-      .digest("base64")
-    try {
-      const sigBuf = Buffer.from(signature)
-      const expBuf = Buffer.from(expected)
-      if (sigBuf.length !== expBuf.length) return false
-      return crypto.timingSafeEqual(sigBuf, expBuf)
-    } catch {
-      return false
-    }
-  } catch {
-    return false
-  }
-}
+import { verifyCashfreeWebhookSignature, isCashfreeWebhookTimestampFresh } from "@/lib/cashfreeWebhookSecurity"
+import { appendSecurityEvent } from "@/lib/securityEventLog"
+import { getClientIp } from "@/lib/inspectSecurity"
+import { buildWebhookIdempotencyKey, markWebhookEventSeen } from "@/lib/webhookIdempotency"
 
 function extractUsername(payload: any): string | null {
   const order = payload?.data?.order ?? payload?.order ?? {}
@@ -88,7 +65,6 @@ export async function POST(req: Request) {
     payload?.event === "webhook.test" ||
     payload?.event === "WEBHOOK_TEST" ||
     (payload?.data?.object?.object === "event" && payload?.data?.object?.type === "test")
-  if (isTest) return NextResponse.json({ received: true }, { status: 200 })
 
   const orderId = payload?.data?.order?.order_id ?? payload?.order_id ?? payload?.orderId
   const hasPaymentData = !!orderId || !!payload?.data?.order
@@ -104,11 +80,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "CASHFREE_SECRET_KEY not set" }, { status: 500 })
   }
   if (!webhookSig || !webhookTs) {
+    if (hasPaymentData || orderId) {
+      return NextResponse.json({ ok: false, error: "Missing webhook signature" }, { status: 401 })
+    }
     return NextResponse.json({ received: true }, { status: 200 })
   }
-  if (!verifyCashfreeSignature(raw, webhookSig, webhookTs, secretKey)) {
+  if (!verifyCashfreeWebhookSignature(raw, webhookSig, webhookTs, secretKey)) {
+    await appendSecurityEvent({ type: "webhook_invalid_signature", ip: getClientIp(req), path: "/api/payments/unblock-webhook" })
     return NextResponse.json({ ok: false, error: "Invalid signature" }, { status: 401 })
   }
+  if (!isCashfreeWebhookTimestampFresh(webhookTs)) {
+    await appendSecurityEvent({ type: "webhook_replay", ip: getClientIp(req), path: "/api/payments/unblock-webhook" })
+    return NextResponse.json({ ok: false, error: "Stale timestamp" }, { status: 401 })
+  }
+  const eventKey = buildWebhookIdempotencyKey("/api/payments/unblock-webhook", raw, webhookTs)
+  if (!markWebhookEventSeen(eventKey)) {
+    return NextResponse.json({ ok: true, message: "Duplicate ignored" })
+  }
+
+  if (isTest) return NextResponse.json({ received: true }, { status: 200 })
 
   const paymentStatus =
     payload?.data?.payment?.payment_status ??

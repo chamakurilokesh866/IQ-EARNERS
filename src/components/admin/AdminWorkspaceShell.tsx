@@ -1,8 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type Ref } from "react"
-import { PARENT_COMPANY_NAME } from "@/lib/seo"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type Ref,
+} from "react"
+import ParentCompanyMark from "@/components/ParentCompanyMark"
 import type { AdminStatsSnapshot } from "@/components/admin/DashboardOverview"
 import {
   ADMIN_NAV_ITEMS,
@@ -38,6 +46,11 @@ export type AdminWorkspaceShellProps = {
   currentNavItem: NavItem | undefined
   onRefreshStats: () => void | Promise<void>
   onCopyContext: () => void
+  /** True when opened as installed PWA / iOS home screen — hides install UI */
+  isStandaloneAdminApp?: boolean
+  canInstallAdminApp?: boolean
+  onInstallAdminApp?: () => void
+  isOffline?: boolean
   children: ReactNode
 }
 
@@ -58,6 +71,20 @@ function saveCollapsed(s: Set<NavSection>) {
   } catch {
     /* ignore */
   }
+}
+
+function subscribeMobileNav(cb: () => void) {
+  const mq = window.matchMedia("(max-width: 1023px)")
+  mq.addEventListener("change", cb)
+  return () => mq.removeEventListener("change", cb)
+}
+
+function snapshotMobileNav() {
+  return window.matchMedia("(max-width: 1023px)").matches
+}
+
+function useIsMobileNavBreakpoint() {
+  return useSyncExternalStore(subscribeMobileNav, snapshotMobileNav, () => false)
 }
 
 export default function AdminWorkspaceShell({
@@ -81,8 +108,13 @@ export default function AdminWorkspaceShell({
   currentNavItem,
   onRefreshStats,
   onCopyContext,
+  isStandaloneAdminApp = false,
+  canInstallAdminApp = false,
+  onInstallAdminApp,
+  isOffline = false,
   children,
 }: AdminWorkspaceShellProps) {
+  const isMobileNav = useIsMobileNavBreakpoint()
   const [collapsed, setCollapsed] = useState<Set<NavSection>>(() =>
     typeof window === "undefined" ? new Set() : loadCollapsed()
   )
@@ -138,7 +170,7 @@ export default function AdminWorkspaceShell({
       )}
 
       <aside
-        className={`fixed lg:sticky inset-y-0 left-0 z-[100] w-[min(100vw-2rem,300px)] flex flex-col min-h-0 overflow-hidden border-r border-primary/10 bg-[var(--admin-sidebar-bg)] backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-out lg:translate-x-0 lg:h-full lg:max-h-screen ${
+        className={`fixed lg:sticky inset-y-0 left-0 z-[100] max-lg:w-[min(calc(100vw-10px),28rem)] w-[min(100vw-2rem,300px)] flex flex-col min-h-0 overflow-hidden border-r border-primary/10 bg-[var(--admin-sidebar-bg)] backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-out max-lg:pt-[env(safe-area-inset-top)] lg:translate-x-0 lg:h-full lg:max-h-screen ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -160,7 +192,9 @@ export default function AdminWorkspaceShell({
             </div>
             <div className={`min-w-0 flex-1 ${sidebarCompact ? "lg:hidden" : ""}`}>
               <div className="font-black text-sm text-white tracking-tight leading-tight">Command Center</div>
-              <div className="text-[9px] text-accent/90 uppercase tracking-[0.16em] font-bold leading-snug">Live ops · {PARENT_COMPANY_NAME}</div>
+              <div className="text-[9px] text-accent/90 uppercase tracking-[0.16em] font-bold leading-snug flex flex-wrap items-center gap-x-1">
+                <span>Live ops ·</span> <ParentCompanyMark className="!normal-case text-[11px]" />
+              </div>
             </div>
             <button
               type="button"
@@ -250,65 +284,140 @@ export default function AdminWorkspaceShell({
           </div>
 
           <div className={sidebarCompact ? "lg:hidden flex flex-col flex-1 min-h-0" : "flex flex-col flex-1 min-h-0"}>
-            {NAV_SECTIONS_ORDER.map((section) => {
-              const items = itemsBySection.get(section) ?? []
-              if (!items.length) return null
-              const isCollapsed = collapsed.has(section)
-              return (
-                <div key={section} className="mb-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(section)}
-                    className="admin-ws-section-toggle"
-                    aria-expanded={!isCollapsed}
-                  >
-                    <span>{SECTION_HEADING[section]}</span>
-                    <span className="admin-ws-chevron" aria-hidden>
-                      {isCollapsed ? "▸" : "▾"}
-                    </span>
-                  </button>
-                  {!isCollapsed &&
-                    items.map((n) => (
-                      <button
-                        key={n.key}
-                        type="button"
-                        title={n.label}
-                        onClick={() => navigateToTab(n.key)}
-                        className="admin-nav-item relative mb-0.5 w-full min-w-0 shrink-0 rounded-lg text-left"
-                      >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold leading-none">
-                          {n.icon}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate font-medium leading-snug text-[10px]">{n.label}</span>
-                        {n.key === "Payments" && pendingCount > 0 && (
-                          <span
-                            className={`flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded px-0.5 text-[9px] font-black ${
-                              tab === n.key ? "bg-slate-900 text-accent" : "bg-amber-500 text-slate-900"
-                            }`}
-                          >
-                            {pendingCount > 99 ? "99+" : pendingCount}
+            {isMobileNav
+              ? NAV_SECTIONS_ORDER.map((section) => {
+                  const items = itemsBySection.get(section) ?? []
+                  if (!items.length) return null
+                  return (
+                    <div key={section} className="mb-2 last:mb-0">
+                      <div className="px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white/35">
+                        {SECTION_HEADING[section]}
+                      </div>
+                      {items.map((n) => (
+                        <button
+                          key={n.key}
+                          type="button"
+                          title={n.label}
+                          onClick={() => navigateToTab(n.key)}
+                          className="admin-nav-item relative mb-0.5 w-full min-w-0 shrink-0 rounded-lg py-2.5 text-left min-h-[44px] items-center"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/5 text-[11px] font-bold leading-none">
+                            {n.icon}
                           </span>
-                        )}
+                          <span className="min-w-0 flex-1 font-medium leading-snug text-[11px] text-white/90">{n.label}</span>
+                          {n.key === "Payments" && pendingCount > 0 && (
+                            <span
+                              className={`flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded px-0.5 text-[9px] font-black ${
+                                tab === n.key ? "bg-slate-900 text-accent" : "bg-amber-500 text-slate-900"
+                              }`}
+                            >
+                              {pendingCount > 99 ? "99+" : pendingCount}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })
+              : NAV_SECTIONS_ORDER.map((section) => {
+                  const items = itemsBySection.get(section) ?? []
+                  if (!items.length) return null
+                  const isCollapsed = collapsed.has(section)
+                  return (
+                    <div key={section} className="mb-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section)}
+                        className="admin-ws-section-toggle"
+                        aria-expanded={!isCollapsed}
+                      >
+                        <span>{SECTION_HEADING[section]}</span>
+                        <span className="admin-ws-chevron" aria-hidden>
+                          {isCollapsed ? "▸" : "▾"}
+                        </span>
                       </button>
-                    ))}
-                </div>
-              )
-            })}
+                      {!isCollapsed &&
+                        items.map((n) => (
+                          <button
+                            key={n.key}
+                            type="button"
+                            title={n.label}
+                            onClick={() => navigateToTab(n.key)}
+                            className="admin-nav-item relative mb-0.5 w-full min-w-0 shrink-0 rounded-lg text-left"
+                          >
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold leading-none">
+                              {n.icon}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium leading-snug text-[10px]">{n.label}</span>
+                            {n.key === "Payments" && pendingCount > 0 && (
+                              <span
+                                className={`flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded px-0.5 text-[9px] font-black ${
+                                  tab === n.key ? "bg-slate-900 text-accent" : "bg-amber-500 text-slate-900"
+                                }`}
+                              >
+                                {pendingCount > 99 ? "99+" : pendingCount}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  )
+                })}
           </div>
         </nav>
+
+        {!isStandaloneAdminApp ? (
+          <div className="relative z-[2] shrink-0 border-t border-white/10 bg-black/35 px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/40">IQ Admin on your phone</p>
+            {canInstallAdminApp && onInstallAdminApp ? (
+              <button
+                type="button"
+                className="w-full rounded-xl bg-gradient-to-r from-primary/90 to-accent/80 py-3 text-xs font-black text-white shadow-lg shadow-primary/20 border border-white/10"
+                onClick={() => {
+                  onInstallAdminApp()
+                }}
+              >
+                Install Admin App
+              </button>
+            ) : (
+              <div className="space-y-1.5 text-[11px] leading-snug text-white/70">
+                <p>
+                  <span className="font-bold text-white/90">Chrome / Edge (Android):</span> Menu → Install app or Add to Home
+                  screen.
+                </p>
+                <p>
+                  <span className="font-bold text-white/90">Safari (iPhone):</span> Share → Add to Home Screen.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
       </aside>
 
       <section className="relative z-[1] flex flex-1 flex-col min-w-0 min-h-0 w-full overflow-hidden bg-[var(--admin-surface)] lg:h-full lg:max-h-screen">
-        <div className="lg:hidden flex items-center justify-between px-3 py-2.5 border-b border-white/5 bg-[color-mix(in_srgb,var(--admin-surface)_95%,transparent)] backdrop-blur-md z-[95]">
-          <span className="font-black text-white text-xs tracking-wide">Admin</span>
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen((o) => !o)}
-            className="w-11 h-11 rounded-xl bg-white/10 border border-white/10 text-white font-bold"
-            aria-label="Menu"
-          >
-            {isMobileMenuOpen ? "✕" : "☰"}
-          </button>
+        <div className="lg:hidden flex items-center justify-between gap-2 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] border-b border-white/5 bg-[color-mix(in_srgb,var(--admin-surface)_95%,transparent)] backdrop-blur-md z-[95]">
+          <span className="font-black text-white text-xs tracking-wide min-w-0">Admin</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isStandaloneAdminApp && canInstallAdminApp && onInstallAdminApp ? (
+              <button
+                type="button"
+                className="rounded-xl bg-primary/20 border border-primary/35 px-2.5 py-2 text-[10px] font-black text-mint max-[380px]:hidden"
+                onClick={() => {
+                  void onInstallAdminApp()
+                }}
+              >
+                Install
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((o) => !o)}
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white/10 border border-white/10 text-white font-bold"
+              aria-label="Menu"
+            >
+              {isMobileMenuOpen ? "✕" : "☰"}
+            </button>
+          </div>
         </div>
 
         <header className="shrink-0 z-30 border-b border-white/5 bg-[color-mix(in_srgb,var(--admin-surface)_90%,transparent)] backdrop-blur-md">
@@ -383,6 +492,15 @@ export default function AdminWorkspaceShell({
                   })}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {!isStandaloneAdminApp && canInstallAdminApp && onInstallAdminApp ? (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-ghost-dark text-xs py-2 px-3"
+                      onClick={onInstallAdminApp}
+                    >
+                      Install Admin App
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     id="copy-admin-context-btn"
@@ -407,6 +525,9 @@ export default function AdminWorkspaceShell({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${isOffline ? "bg-amber-500/10 border-amber-500/25 text-amber-200" : "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"}`}>
+                {isOffline ? "Offline mode" : "Online"}
+              </div>
               <button
                 type="button"
                 onClick={() => navigateToTab("Payments")}

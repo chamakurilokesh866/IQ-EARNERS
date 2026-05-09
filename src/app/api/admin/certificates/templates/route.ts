@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { requireAdmin } from "@/lib/auth"
 import { createServerSupabase } from "@/lib/supabase"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { promises as fs } from "fs"
@@ -24,20 +24,16 @@ function mapKeyToTemplate(data: Record<string, unknown>): { first: string; runne
 }
 
 export async function GET() {
-  const cookieStore = await cookies()
-  if (cookieStore.get("role")?.value !== "admin") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
   const settings = await getSettings()
   const data = mapKeyToTemplate(settings as Record<string, unknown>)
   return NextResponse.json({ ok: true, data })
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  if (cookieStore.get("role")?.value !== "admin") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
   const body = await req.json().catch(() => ({}))
   const type = body?.type === "runnerUp" || body?.type === "participation" ? body.type : "first"
   const base64 = body?.base64 && typeof body.base64 === "string" ? body.base64 : ""

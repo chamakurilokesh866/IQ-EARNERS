@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { rateLimit } from "@/lib/rateLimit"
-import { recordInspectAlert, blockIp, getClientIp } from "@/lib/inspectSecurity"
+import { recordInspectAlert, blockIp, getClientIp, getRecentInspectAlertCount } from "@/lib/inspectSecurity"
 import { getProfileByUid } from "@/lib/profiles"
 
 export const dynamic = "force-dynamic"
@@ -30,15 +30,18 @@ export async function POST(req: Request) {
     } catch { }
     const ok = await recordInspectAlert(req, { username, page_url: pageUrl })
 
-    if (body.autoBlock === true) {
-      const ip = getClientIp(req)
-      await blockIp(ip)
+    const ip = getClientIp(req)
+    const reason = `Security violation detected (${type || "general"})`
+    const autoBlock = Boolean(body?.autoBlock)
+    const strikes = await getRecentInspectAlertCount(ip, 30 * 60 * 1000)
+    const shouldBlock = autoBlock || strikes >= 3
+    if (shouldBlock) {
+      await blockIp(ip, undefined, reason)
     }
 
     // Proactive Admin Notification
     if (ok) {
       try {
-        const ip = getClientIp(req)
         const { sendPushNotification } = await import("@/lib/push")
         await sendPushNotification({
           title: "🛡️ Security Incident: DevTools Detected",
@@ -48,7 +51,13 @@ export async function POST(req: Request) {
       } catch { }
     }
 
-    return NextResponse.json({ ok })
+    return NextResponse.json({
+      ok,
+      blocked: shouldBlock,
+      strikes,
+      warningsBeforeBlock: 2,
+      warningsRemaining: Math.max(0, 2 - Math.min(2, strikes)),
+    })
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 })
   }

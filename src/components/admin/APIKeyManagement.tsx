@@ -258,7 +258,14 @@ export default function APIKeyManagement() {
       {view === "docs" && (
         <div className="admin-card p-6">
           <h3 className="text-lg font-black text-white mb-1">API Documentation</h3>
-          <p className="text-xs text-white/40 mb-5">RESTful API for LMS integration, school portals &amp; third-party apps</p>
+          <p className="text-xs text-white/40 mb-3">RESTful API for LMS integration, school portals &amp; third-party apps</p>
+          <p className="text-[10px] text-white/35 mb-5 leading-relaxed">
+            External organizations create keys in <span className="text-white/55">Org dashboard → API keys</span> (<code className="text-mint/70">/org/&lt;slug&gt;/dashboard</code>), not here.
+            This admin area is for platform-wide keys and webhooks.
+          </p>
+          <a href="/more/api-guide" className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-mint mb-5 hover:bg-primary/20 transition-colors">
+            Open Full Organization API Guide
+          </a>
           <div className="space-y-3">
             {[
               { method: "GET", path: "/api/v1/quizzes", desc: "List all available quizzes with pagination" },

@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { SUPPORT_EMAIL } from "@/lib/seo"
+
 export type SponsorFormKind = "sponsor" | "promotion" | "collaboration" | "university"
 
 const CHECK = "☐"
@@ -362,7 +364,7 @@ export default function SponsorForms({
               placeholder="Describe your campaign goals and expectations"
             />
           </section>
-          <p className="text-xs text-navy-500">📌 We reply from contact@iqearners.online within 1–2 business days.</p>
+          <p className="text-xs text-navy-500">📌 We reply from {SUPPORT_EMAIL} within 1–2 business days.</p>
         </>
       )}
 
@@ -504,7 +506,7 @@ export default function SponsorForms({
               onChange={(v) => promotion.set("campaignObjective", v)}
             />
           </section>
-          <p className="text-xs text-navy-500">📌 We respond within 1–2 business days from contact@iqearners.online</p>
+          <p className="text-xs text-navy-500">📌 We respond within 1–2 business days from {SUPPORT_EMAIL}</p>
         </>
       )}
 

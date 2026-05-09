@@ -1,4 +1,234 @@
+import type { jsPDF } from "jspdf"
+import { SITE_NAME, SITE_URL, DEFAULT_OG_IMAGE_URL } from "@/lib/seo"
+
 export type CertificateType = "1st" | "runner_up" | "participation"
+
+async function urlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const r = new FileReader()
+      r.onloadend = () => resolve(r.result as string)
+      r.onerror = () => resolve(null)
+      r.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+function setFittedCenterText(
+  doc: jsPDF,
+  text: string,
+  centerX: number,
+  y: number,
+  maxWidth: number,
+  startSize: number,
+  minSize = 10
+) {
+  let size = startSize
+  doc.setFontSize(size)
+  while (size > minSize && doc.getTextWidth(text) > maxWidth) {
+    size -= 1
+    doc.setFontSize(size)
+  }
+  doc.text(text, centerX, y, { align: "center" })
+}
+
+function resolveAssetUrl(url: string): string {
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${url.startsWith("/") ? "" : "/"}${url}`
+  }
+  return url
+}
+
+function drawIqEarnersStamp(doc: jsPDF, cx: number, cy: number, text: string, color: [number, number, number]) {
+  doc.setDrawColor(color[0], color[1], color[2])
+  doc.setLineWidth(0.6)
+  doc.circle(cx, cy, 13, "S")
+  doc.setLineWidth(0.25)
+  doc.circle(cx, cy, 10.8, "S")
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(6)
+  doc.setTextColor(color[0], color[1], color[2])
+  doc.text("IQ EARNERS", cx, cy - 2.8, { align: "center" })
+  doc.text(text.toUpperCase(), cx, cy + 1.2, { align: "center" })
+  doc.text("VERIFIED MEMBER", cx, cy + 5.2, { align: "center" })
+}
+
+async function renderParticipationBranded(
+  doc: jsPDF,
+  pageW: number,
+  pageH: number,
+  opts: {
+    recipientName: string
+    tournamentName: string
+    date: string
+    score: number
+    total: number
+    memberId?: string
+    siteName: string
+    siteUrl: string
+    logoUrl?: string
+    contextLine?: string
+  }
+) {
+  const cream = [252, 252, 250]
+  const ink = [30, 41, 59]
+  const muted = [100, 116, 139]
+  const gold = [180, 140, 60]
+
+  doc.setFillColor(cream[0], cream[1], cream[2])
+  doc.rect(0, 0, pageW, pageH, "F")
+
+  doc.setDrawColor(gold[0], gold[1], gold[2])
+  doc.setLineWidth(1)
+  doc.rect(10, 10, pageW - 20, pageH - 20, "S")
+  doc.setLineWidth(0.35)
+  doc.rect(14, 14, pageW - 28, pageH - 28, "S")
+
+  const innerPad = 22
+  let y = 22
+
+  const logoCandidate = opts.logoUrl ? resolveAssetUrl(opts.logoUrl) : resolveAssetUrl(DEFAULT_OG_IMAGE_URL)
+  const logoData = await urlToDataUrl(logoCandidate)
+  if (logoData) {
+    const lw = 32
+    const lh = 12
+    try {
+      doc.addImage(logoData, "PNG", pageW / 2 - lw / 2, y, lw, lh)
+    } catch {
+      try {
+        doc.addImage(logoData, "JPEG", pageW / 2 - lw / 2, y, lw, lh)
+      } catch { /* skip logo */ }
+    }
+    y += lh + 6
+  } else {
+    y += 4
+  }
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(11)
+  doc.setTextColor(gold[0], gold[1], gold[2])
+  doc.text(opts.siteName.toUpperCase(), pageW / 2, y, { align: "center", charSpace: 1.2 })
+  y += 7
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(muted[0], muted[1], muted[2])
+  doc.text(opts.siteUrl.replace(/^https?:\/\//, ""), pageW / 2, y, { align: "center" })
+  y += 16
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(26)
+  doc.setTextColor(ink[0], ink[1], ink[2])
+  doc.text("Certificate of Participation", pageW / 2, y, { align: "center" })
+  y += 14
+
+  const plateTop = y - 4
+  const plateH = Math.min(72, pageH - plateTop - 48)
+  doc.setDrawColor(gold[0], gold[1], gold[2])
+  doc.setLineWidth(0.25)
+  doc.setFillColor(255, 255, 255)
+  doc.roundedRect(innerPad, plateTop, pageW - innerPad * 2, plateH, 2, 2, "FD")
+
+  y = plateTop + 14
+  const textMax = pageW - innerPad * 2 - 24
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(9)
+  doc.setTextColor(muted[0], muted[1], muted[2])
+  doc.text("This is to certify that", pageW / 2, y, { align: "center" })
+  y += 12
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(20)
+  doc.setTextColor(ink[0], ink[1], ink[2])
+  const nameLines = doc.splitTextToSize(opts.recipientName || "Participant", textMax)
+  for (const line of nameLines) {
+    doc.text(line, pageW / 2, y, { align: "center" })
+    y += 9
+  }
+  y += 4
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(10)
+  doc.setTextColor(muted[0], muted[1], muted[2])
+  const ctx =
+    opts.contextLine ||
+    "For active participation and dedication in our competitive quiz program."
+  const ctxLines = doc.splitTextToSize(ctx, textMax)
+  for (const line of ctxLines) {
+    doc.text(line, pageW / 2, y, { align: "center" })
+    y += 6
+  }
+  y += 8
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(10)
+  doc.setTextColor(ink[0], ink[1], ink[2])
+  doc.text("Quiz / Program", innerPad + 12, y)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(11)
+  const titleLines = doc.splitTextToSize(opts.tournamentName || "—", textMax - 8)
+  let ty = y + 6
+  for (const line of titleLines) {
+    doc.text(line, innerPad + 12, ty)
+    ty += 6
+  }
+  y = ty + 10
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(10)
+  doc.setTextColor(ink[0], ink[1], ink[2])
+  doc.text("Date of issue", innerPad + 12, y)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(11)
+  doc.text(opts.date, innerPad + 12, y + 7)
+
+  if (opts.score > 0 || opts.total > 0) {
+    doc.setFont("helvetica", "bold")
+    doc.text("Score", pageW - innerPad - 12, y, { align: "right" })
+    doc.setFont("helvetica", "normal")
+    doc.text(`${opts.score} / ${opts.total}`, pageW - innerPad - 12, y + 7, { align: "right" })
+  }
+
+  const footerY = pageH - 28
+  const verificationId =
+    opts.memberId ||
+    (
+      (opts.recipientName.slice(0, 3) || "USR") +
+      (opts.tournamentName.slice(0, 3) || "EVT") +
+      opts.date.replace(/[^0-9]/g, "")
+    ).toUpperCase()
+  const verifyPath = `/verify/${verificationId}`
+  const verifyUrl = `${opts.siteUrl.replace(/\/$/, "")}${verifyPath.startsWith("/") ? verifyPath : `/${verifyPath}`}`
+
+  try {
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`
+    const qrRes = await fetch(qrApiUrl)
+    const qrBlob = await qrRes.blob()
+    const qrBase64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.readAsDataURL(qrBlob)
+    })
+    doc.addImage(qrBase64, "PNG", pageW - innerPad - 18, footerY - 6, 16, 16)
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(6)
+    doc.setTextColor(gold[0], gold[1], gold[2])
+    doc.text("SCAN TO VERIFY", pageW - innerPad - 10, footerY + 14, { align: "center" })
+  } catch {
+    /* no QR */
+  }
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(7)
+  doc.setTextColor(muted[0], muted[1], muted[2])
+  doc.text(`ID: ${verificationId}`, innerPad, footerY + 4)
+  doc.text(opts.siteUrl.replace(/^https?:\/\//, ""), innerPad, footerY + 10)
+}
 
 /**
  * Generate a premium certificate PDF for IQ Earners.
@@ -13,14 +243,17 @@ export async function generateCertificate(options: {
   date?: string
   templateImageBase64?: string
   memberId?: string
+  siteName?: string
+  siteUrl?: string
+  logoUrl?: string
+  contextLine?: string
 }) {
   if (typeof window === "undefined") return
 
-  // Dynamically import jsPDF to keep main bundle small
   const { jsPDF } = await import("jspdf")
 
   const doc = new jsPDF({
-    orientation: "landscape", // Landscape is standard for certificates
+    orientation: "landscape",
     format: "a4",
     unit: "mm"
   })
@@ -38,35 +271,36 @@ export async function generateCertificate(options: {
     memberId
   } = options
 
+  const brandName = options.siteName ?? SITE_NAME
+  const brandUrl = options.siteUrl ?? SITE_URL
+
   const hasTemplate = !!templateImageBase64
   const darkNavy = [15, 23, 42]
   const gold = [198, 166, 89]
   const slate600 = [71, 85, 105]
 
-  // Theme Config
   const themes = {
     "1st": {
-      primary: [234, 179, 8],      // Vivid Gold
-      secondary: [254, 240, 138], // Light Gold
+      primary: [234, 179, 8],
+      secondary: [254, 240, 138],
       label: "CHAMPION",
-      badgeText: "1ST"
+      badgeText: "CHAMPION"
     },
     "runner_up": {
-      primary: [148, 163, 184],    // Silver/Slate
-      secondary: [241, 245, 249], // Very Light Slate
-      label: "RUNNER UP",
-      badgeText: "2ND"
+      primary: [30, 64, 175],
+      secondary: [191, 219, 254],
+      label: "1ST RUNNER UP",
+      badgeText: "RUNNER UP"
     },
     "participation": {
-      primary: [16, 185, 129],    // Vibrant Green
-      secondary: [209, 250, 229], // Mint
+      primary: [16, 185, 129],
+      secondary: [209, 250, 229],
       label: "PARTICIPANT",
-      badgeText: "OK"
+      badgeText: "MEMBER"
     }
   }
   const theme = themes[type] || themes["1st"]
 
-  // --- Image Overlay Support ---
   if (templateImageBase64) {
     let imgData = templateImageBase64
     if (templateImageBase64.startsWith("http")) {
@@ -93,20 +327,54 @@ export async function generateCertificate(options: {
       } catch { }
     }
 
-    // In template mode, we only add text to specific coordinates
     if (hasTemplate) {
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(22)
       doc.setTextColor(darkNavy[0], darkNavy[1], darkNavy[2])
-      doc.text(recipientName || "Valued Participant", pageW / 2, 105, { align: "center" })
 
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(11)
-      doc.setTextColor(slate600[0], slate600[1], slate600[2])
-      doc.text(`${tournamentName} | ${date}`, pageW / 2, 116, { align: "center" })
+      if (type === "participation") {
+        doc.setFontSize(22)
+        doc.text(recipientName || "Valued Participant", pageW / 2, 92, { align: "center" })
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(10)
+        doc.setTextColor(slate600[0], slate600[1], slate600[2])
+        const subtitle = doc.splitTextToSize(tournamentName || "", pageW - 50)
+        let ly = 108
+        for (const line of subtitle) {
+          doc.text(line, pageW / 2, ly, { align: "center" })
+          ly += 6
+        }
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(10)
+        doc.text(`Issued: ${date}`, pageW / 2, ly + 8, { align: "center" })
+        if (score > 0 || total > 0) {
+          doc.text(`Score: ${score} / ${total}`, pageW / 2, ly + 16, { align: "center" })
+        }
+        doc.setFontSize(8)
+        doc.setTextColor(gold[0], gold[1], gold[2])
+        doc.text(brandName, pageW / 2, pageH - 14, { align: "center" })
+      } else {
+        // Template-safe overlay placement with width fitting (prevents clipping / overflow on long names).
+        const safeName = (recipientName || "Valued Participant").toUpperCase()
+        const safeTournament = (tournamentName || "").toUpperCase()
+        const yName = pageH * 0.49
+        const yTournament = pageH * 0.67
+        const yScore = pageH * 0.73
+        const yDate = pageH * 0.89
+        const maxNameW = pageW * 0.62
+        const maxTournamentW = pageW * 0.48
+        const maxScoreW = pageW * 0.28
 
-      if (score > 0 || total > 0) {
-        doc.text(`Score: ${score}/${total}`, pageW / 2, 124, { align: "center" })
+        doc.setFontSize(22)
+        setFittedCenterText(doc, safeName, pageW / 2, yName, maxNameW, 22, 12)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(12)
+        doc.setTextColor(slate600[0], slate600[1], slate600[2])
+        setFittedCenterText(doc, safeTournament, pageW / 2, yTournament, maxTournamentW, 12, 9)
+        if (Number(total) > 0 && Number(score) >= 0) {
+          setFittedCenterText(doc, `Score: ${score}/${total}`, pageW / 2, yScore, maxScoreW, 11, 9)
+        }
+        doc.setFontSize(10)
+        doc.text(`Issued: ${date}`, pageW * 0.84, yDate, { align: "center" })
       }
 
       const fileName = `IQE-Cert-${(recipientName || "user").replace(/\s+/g, "_")}.pdf`
@@ -115,26 +383,37 @@ export async function generateCertificate(options: {
     }
   }
 
-  // --- Dynamic Premium Template (Full Design) ---
+  if (!hasTemplate && type === "participation") {
+    await renderParticipationBranded(doc, pageW, pageH, {
+      recipientName,
+      tournamentName,
+      date,
+      score,
+      total,
+      memberId,
+      siteName: brandName,
+      siteUrl: brandUrl,
+      logoUrl: options.logoUrl,
+      contextLine: options.contextLine
+    })
+    const safeName = (recipientName || "User").replace(/[^a-zA-Z0-9-]/g, "_")
+    doc.save(`IQ-Earners-Participation-${safeName}.pdf`)
+    return
+  }
 
-  // 1. Background
   doc.setFillColor(darkNavy[0], darkNavy[1], darkNavy[2])
   doc.rect(0, 0, pageW, pageH, "F")
 
-  // 2. Artistic Geometric Elements
-  // Top-left corner
   doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.triangle(0, 0, 70, 0, 0, 70, "F")
   doc.setFillColor(theme.secondary[0], theme.secondary[1], theme.secondary[2])
   doc.triangle(0, 0, 45, 0, 0, 45, "F")
 
-  // Bottom-right corner
   doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.triangle(pageW, pageH, pageW - 70, pageH, pageW, pageH - 70, "F")
   doc.setFillColor(theme.secondary[0], theme.secondary[1], theme.secondary[2])
   doc.triangle(pageW, pageH, pageW - 45, pageH, pageW, pageH - 45, "F")
 
-  // 3. Dual Borders
   doc.setDrawColor(255, 255, 255)
   doc.setLineWidth(0.3)
   doc.rect(10, 10, pageW - 20, pageH - 20, "S")
@@ -145,17 +424,20 @@ export async function generateCertificate(options: {
 
   let y = 35
 
-  // 4. Branding & Title
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(38)
-  doc.setTextColor(255, 255, 255)
-  doc.text("CERTIFICATE", pageW / 2, y, { align: "center" })
-
-  y += 10
-  doc.setFontSize(14)
+  doc.setFontSize(12)
   doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
-  const subTitle = (type === "participation" ? "OF PARTICIPATION" : "OF EXCELLENCE")
-  doc.text(subTitle, pageW / 2, y, { align: "center", charSpace: 2 })
+  doc.text("IQ-EARNERS ELITE ARENA", pageW / 2, y - 5, { align: "center", charSpace: 1.5 })
+
+  doc.setFontSize(42)
+  doc.setTextColor(255, 255, 255)
+  doc.text("CERTIFICATE", pageW / 2, y + 10, { align: "center" })
+
+  y += 20
+  doc.setFontSize(16)
+  doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
+  const subTitle = `OF ${theme.label} EXCELLENCE`
+  doc.text(subTitle.toUpperCase(), pageW / 2, y, { align: "center", charSpace: 2 })
 
   y += 30
   doc.setFont("helvetica", "normal")
@@ -169,7 +451,6 @@ export async function generateCertificate(options: {
   doc.setTextColor(255, 255, 255)
   doc.text((recipientName || "Valued Participant").toUpperCase(), pageW / 2, y, { align: "center" })
 
-  // Elegant Accent Line
   y += 6
   doc.setDrawColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.setLineWidth(0.8)
@@ -179,9 +460,7 @@ export async function generateCertificate(options: {
   doc.setFont("helvetica", "normal")
   doc.setFontSize(11)
   doc.setTextColor(200, 200, 200)
-  const achievementText = type === "participation"
-    ? "For successfully competing and showcasing outstanding skill in"
-    : `For achieving the ${theme.label} position with stellar performance in`
+  const achievementText = `For achieving the distinguished ${theme.label} position with stellar performance in`
   doc.text(achievementText, pageW / 2, y, { align: "center" })
 
   y += 10
@@ -198,10 +477,8 @@ export async function generateCertificate(options: {
     doc.text(`Aggregate Score: ${score} / ${total}`, pageW / 2, y, { align: "center" })
   }
 
-  // 5. Verification Section
   const footerY = pageH - 45
 
-  // Seal / Badge
   const sealX = pageW / 2
   const sealY = footerY - 5
   doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
@@ -209,17 +486,23 @@ export async function generateCertificate(options: {
   doc.setFillColor(darkNavy[0], darkNavy[1], darkNavy[2])
   doc.circle(sealX, sealY, 13, "F")
 
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(9)
+  doc.setFont("helvetica", "black")
+  doc.setFontSize(8)
   doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
-  doc.text("IQ", sealX, sealY - 1, { align: "center" })
-  doc.text("EARNERS", sealX, sealY + 3, { align: "center" })
+  doc.text("OFFICIAL SEAL", sealX, sealY - 6, { align: "center" })
+  doc.setFontSize(10)
+  doc.text("IQ-EARNERS", sealX, sealY + 1, { align: "center" })
+  doc.setFontSize(7)
+  doc.text("VERIFIED", sealX, sealY + 6, { align: "center" })
 
-  // Signature
   doc.setFont("times", "italic")
   doc.setFontSize(22)
   doc.setTextColor(255, 255, 255)
   doc.text("Team IQ Earners", 50, footerY + 5, { align: "center" })
+
+  // Premium trust marks for high-value certificate authenticity.
+  drawIqEarnersStamp(doc, pageW / 2 - 38, footerY - 4, "EXCELLENCE", [198, 166, 89])
+  drawIqEarnersStamp(doc, pageW / 2 + 38, footerY - 4, "TRUSTED", [130, 180, 255])
 
   doc.setDrawColor(200, 200, 200)
   doc.setLineWidth(0.3)
@@ -230,7 +513,6 @@ export async function generateCertificate(options: {
   doc.setTextColor(150, 150, 150)
   doc.text("AUTHORIZED VERIFIER", 50, footerY + 13, { align: "center" })
 
-  // Date
   doc.setFont("helvetica", "bold")
   doc.setFontSize(12)
   doc.setTextColor(255, 255, 255)
@@ -245,11 +527,11 @@ export async function generateCertificate(options: {
   doc.setTextColor(150, 150, 150)
   doc.text("DATE OF ISSUE", pageW - 50, footerY + 13, { align: "center" })
 
-  // 6. Verification ID & QR Code
-  const verificationId = memberId || (recipientName.slice(0, 3) + tournamentName.slice(0, 3) + date.replace(/[^0-9]/g, "")).toUpperCase()
-  const verifyUrl = `https://www.iqearners.online/verify/${verificationId}`
-  
-  // Fetch QR Code from API
+  const verificationId =
+    memberId ||
+    (recipientName.slice(0, 3) + tournamentName.slice(0, 3) + date.replace(/[^0-9]/g, "")).toUpperCase()
+  const verifyUrl = `${brandUrl.replace(/\/$/, "")}/verify/${verificationId}`
+
   try {
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`
     const qrRes = await fetch(qrApiUrl)
@@ -260,7 +542,7 @@ export async function generateCertificate(options: {
       reader.readAsDataURL(qrBlob)
     })
     doc.addImage(qrBase64, "PNG", pageW - 35, pageH - 35, 20, 20)
-    
+
     doc.setFont("helvetica", "bold")
     doc.setFontSize(6)
     doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
@@ -272,21 +554,20 @@ export async function generateCertificate(options: {
   doc.setFontSize(7)
   doc.setTextColor(80, 80, 80)
   doc.text(`VERIFICATION ID: ${verificationId}`, pageW / 2, pageH - 12, { align: "center" })
-  doc.text(`www.iqearners.online`, pageW / 2, pageH - 8, { align: "center" })
+  doc.text(brandUrl.replace(/^https?:\/\//, ""), pageW / 2, pageH - 8, { align: "center" })
 
-  // 7. Save
   const safeName = (recipientName || "User").replace(/[^a-zA-Z0-9-]/g, "_")
   doc.save(`IQ-Earners-Certificate-${safeName}.pdf`)
 }
 
 export function generate1stPlaceCertificate(options: {
-  recipientName: string;
-  tournamentName: string;
-  score?: number;
-  total?: number;
-  date?: string;
-  templateImageBase64?: string;
-  memberId?: string;
+  recipientName: string
+  tournamentName: string
+  score?: number
+  total?: number
+  date?: string
+  templateImageBase64?: string
+  memberId?: string
 }) {
   return generateCertificate({ ...options, type: "1st" })
 }

@@ -1,64 +1,69 @@
 "use client"
 import { useState, useEffect } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 
-export default function CookieBanner({ onVisibleChange }: { onVisibleChange?: (visible: boolean) => void }) {
+export default function CookieBanner() {
   const [show, setShow] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
+    if (pathname === "/blocked" || pathname === "/unblock") {
+      setShow(false)
+      return
+    }
     const consent = localStorage.getItem("cookie-consent")
     if (!consent) {
-      // Show almost immediately for priority
       const timer = setTimeout(() => {
         setShow(true)
-        onVisibleChange?.(true)
-      }, 50)
+      }, 350)
       return () => clearTimeout(timer)
     }
-  }, [onVisibleChange])
+  }, [pathname])
 
   const handleAction = (type: "accept" | "decline") => {
     localStorage.setItem("cookie-consent", type)
     setShow(false)
-    onVisibleChange?.(false)
   }
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ y: -100, opacity: 0 }}
+          initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -100, opacity: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 200 }}
-          className="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] sm:w-[500px] z-[1000]"
+          exit={{ y: 12, opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="fixed bottom-4 inset-x-4 z-[1200] pointer-events-none"
         >
-          <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-5 sm:p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8)] flex items-center gap-4">
-             <div className="hidden sm:flex w-12 h-12 bg-white/5 rounded-2xl shrink-0 items-center justify-center text-2xl">
-                🍪
-             </div>
-             
-             <div className="flex-1">
-               <h3 className="text-white font-black text-sm uppercase tracking-widest mb-1">Privacy Engine</h3>
-               <p className="text-white/50 text-[10px] sm:text-[11px] leading-snug font-medium">
-                 This platform uses elite identifiers to ensure secure gameplay and encrypted payments.
-               </p>
-             </div>
-
-             <div className="flex flex-col gap-2 shrink-0">
-               <button
-                 onClick={() => handleAction("accept")}
-                 className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter bg-primary text-black hover:scale-[1.05] transition-all"
-               >
-                 Accept
-               </button>
-               <button
-                 onClick={() => handleAction("decline")}
-                 className="px-6 py-2 text-[9px] font-bold text-white/40 hover:text-white transition-colors"
-               >
-                 Decline
-               </button>
-             </div>
+          <div className="max-w-3xl mx-auto pointer-events-auto rounded-2xl border border-white/15 bg-slate-950/90 backdrop-blur-xl px-4 py-3 sm:px-6 sm:py-5 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-white font-bold text-sm">Cookie Preferences</h3>
+                <p className="text-white/65 text-[11px] leading-relaxed">
+                  We use essential cookies and optional analytics/ads cookies. You can accept or reject optional cookies.
+                  {" "}
+                  <Link href="/intro?legal=cookie" className="underline text-white hover:text-primary transition-colors">
+                    Cookie Policy
+                  </Link>
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleAction("decline")}
+                  className="px-3 py-2 rounded-lg text-[11px] font-semibold text-white/80 hover:text-white border border-white/20 hover:border-white/35 transition-colors"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleAction("accept")}
+                  className="px-3 py-2 rounded-lg text-[11px] font-semibold bg-primary text-white hover:brightness-110 transition-all"
+                >
+                  Accept
+                </button>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

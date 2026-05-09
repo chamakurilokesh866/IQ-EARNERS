@@ -72,7 +72,7 @@ export default function Page() {
   }, [items])
   return (
     <PaidGate>
-    <main className="min-h-screen app-page-surface text-[#1a2340]">
+    <main className="min-h-screen bg-transparent text-[#1a2340]">
       <Navbar />
       <section className="mx-auto max-w-7xl px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 lg:pt-3">
         <AdSlot slotId="tournament_top" />

@@ -6,6 +6,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import TransitionLink from "../../components/TransitionLink"
 import UnblockUploadForm from "../../components/UnblockUploadForm"
+import dynamic from "next/dynamic"
+
+const UnblockCashfreePay = dynamic(() => import("../../components/UnblockCashfreePay"), { ssr: false })
 
 export default function UnblockPage() {
   const searchParams = useSearchParams()
@@ -108,7 +111,16 @@ export default function UnblockPage() {
           <p className="mt-2 text-sm text-navy-300 leading-relaxed">
             Account <span className="font-mono text-white/90">@{username}</span> is blocked. Submit payment proof below.
           </p>
-          <div className="mt-8 pt-6 border-t border-white/10">
+          <div className="mt-8 pt-6 border-t border-white/10 space-y-6">
+            <UnblockCashfreePay username={username} amount={amount} onPaymentSuccess={() => setStage("unblocking")} />
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center" aria-hidden>
+                <div className="w-full border-t border-white/10" />
+              </div>
+              <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-wider">
+                <span className="bg-navy-950/80 px-3 text-navy-400">or upload proof</span>
+              </div>
+            </div>
             <UnblockUploadForm
               username={username}
               amount={amount}

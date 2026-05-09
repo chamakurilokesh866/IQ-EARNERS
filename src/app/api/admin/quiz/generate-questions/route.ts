@@ -7,6 +7,8 @@ import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth"
 import { getSettings } from "@/lib/settings"
 import { chatCompletion, isAiConfigured } from "@/lib/aiGateway"
+import { getQuizzes } from "@/lib/quizzes"
+import { normalizeQuestionStem } from "@/lib/quizQuestionDedupe"
 
 type SingleQuestion = {
   question: string
@@ -60,7 +62,8 @@ function buildPrompt(
   difficulties: string[],
   questionTypes: string[],
   audienceSegment?: string,
-  department?: string
+  department?: string,
+  schoolClass?: string
 ): string {
   const multiLang = languages.length > 1
   const langMap: Record<string, string> = {
@@ -87,6 +90,11 @@ function buildPrompt(
   else if (audienceSegment === "bba") constraints.push(`Audience: BBA (Bachelor of Business Administration)`)
   else if (audienceSegment === "ece") constraints.push(`Audience: ECE (Electronics & Communication Engineering)`)
   else if (audienceSegment === "aeronautical") constraints.push(`Audience: Aeronautical Engineering`)
+  else if (audienceSegment === "school") {
+    const cls = (schoolClass || "").trim()
+    constraints.push(`Audience: school students${cls ? `, Class: ${cls}` : ""}`)
+    constraints.push("Questions must be age-appropriate and curriculum-aligned for the selected class.")
+  }
 
   const constraintText = constraints.length ? "\nConstraints: " + constraints.join(". ") : ""
 
@@ -113,7 +121,9 @@ CRITICAL RULES:
 1. Output ONLY valid raw JSON.
 2. Every item in questionsMultiLang MUST have ALL keys: ${languages.join(", ")}.
 3. Do not omit any language. 
-4. Options must be identical in meaning across languages.`
+4. Options must be identical in meaning across languages.
+5. All ${count} questions must be DISTINCT: different facts/scenarios/wording — no duplicate or near-duplicate questions.
+6. Options mutually exclusive; exactly one clearly correct answer per language.`
   }
 
   return `TASK: Generate exactly ${count} MCQ questions.
@@ -127,7 +137,10 @@ JSON STRUCTURE:
   ]
 }
 
-Output ONLY valid raw JSON.`
+Output ONLY valid raw JSON.
+
+CRITICAL: All ${count} questions must be DISTINCT — no repeated or paraphrased duplicates; each MCQ must test a different point.
+Options must be mutually exclusive; exactly one clearly correct answer; distractors must be plausible but wrong.`
 }
 
 function extractJson(text: string): { questions?: any[]; questionsMultiLang?: any[]; languages?: string[] } | null {
@@ -236,7 +249,7 @@ function extractBalancedBrackets(s: string, start: number, open: string, close: 
 
 function normalizeSingle(rows: any[]): SingleQuestion[] {
   return (rows || []).map((q: any, qIdx: number) => {
-    let opts: string[] = Array.isArray(q?.options)
+    const opts: string[] = Array.isArray(q?.options)
       ? q.options.map(String).filter(Boolean)
       : q?.options && typeof q.options === "object"
         ? Object.values(q.options).map(String).filter(Boolean)
@@ -254,7 +267,7 @@ function normalizeSingle(rows: any[]): SingleQuestion[] {
       correct: newCorrect >= 0 ? newCorrect : 0,
       explanation: typeof q?.explanation === "string" ? q.explanation.trim() : undefined
     }
-  }).filter((q) => q.question && q.options.length >= 2)
+  }).filter((q) => q.question && q.options.length >= 4)
 }
 
 function normalizeMultiLang(rows: any[], languages: string[]): MultiLangQuestion[] {
@@ -264,8 +277,9 @@ function normalizeMultiLang(rows: any[], languages: string[]): MultiLangQuestion
     for (const lang of languages) {
       const t = trans[lang]
       if (!t || typeof t.question !== "string" || !t.question.trim()) continue
-      const opts = Array.isArray(t.options) ? t.options.map(String).filter(Boolean) : []
-      if (opts.length < 2) continue
+      const rawOpts = Array.isArray(t.options) ? t.options.map(String).map((x: string) => x.trim()).filter(Boolean) : []
+      const opts = Array.from(new Set(rawOpts))
+      if (opts.length !== 4) continue
       const correctIdx = Math.max(0, Math.min(opts.length - 1, Number(t.correct) ?? 0))
       const correctText = opts[correctIdx] ?? opts[0]
       const seed = (qIdx * 31 + lang.charCodeAt(0)) * 17
@@ -280,7 +294,76 @@ function normalizeMultiLang(rows: any[], languages: string[]): MultiLangQuestion
     }
     return { translations: out }
     // Require at least 1 valid language translation (not all), prevents dropping everything when AI misses a language
-  }).filter((m) => Object.keys(m.translations).length >= 1)
+  }).filter((m) => Object.keys(m.translations).length === languages.length)
+}
+
+function dedupeSingleQuestions(rows: SingleQuestion[], existing: Set<string>): SingleQuestion[] {
+  const seen = new Set<string>()
+  const out: SingleQuestion[] = []
+  for (const q of rows) {
+    const stem = normalizeQuestionStem(q.question)
+    if (!stem) continue
+    if (seen.has(stem) || existing.has(stem)) continue
+    const uniqueOpts = Array.from(new Set(q.options.map((x) => x.trim()).filter(Boolean)))
+    if (uniqueOpts.length !== 4) continue
+    if (q.correct < 0 || q.correct >= uniqueOpts.length) continue
+    seen.add(stem)
+    out.push({ ...q, options: uniqueOpts })
+  }
+  return out
+}
+
+function dedupeMultiLangQuestions(rows: MultiLangQuestion[], languages: string[], existing: Set<string>): MultiLangQuestion[] {
+  const seen = new Set<string>()
+  const out: MultiLangQuestion[] = []
+  for (const q of rows) {
+    const enLike = q.translations[languages[0]]
+    const stem = normalizeQuestionStem(enLike?.question ?? "")
+    if (!stem) continue
+    if (seen.has(stem) || existing.has(stem)) continue
+    let ok = true
+    for (const lang of languages) {
+      const t = q.translations[lang]
+      if (!t) { ok = false; break }
+      const uniqueOpts = Array.from(new Set((t.options || []).map((x: string) => String(x).trim()).filter(Boolean)))
+      if (uniqueOpts.length !== 4) { ok = false; break }
+      if (t.correct < 0 || t.correct >= uniqueOpts.length) { ok = false; break }
+      t.options = uniqueOpts
+    }
+    if (!ok) continue
+    seen.add(stem)
+    out.push(q)
+  }
+  return out
+}
+
+async function verifyAnswersWithAi(rows: SingleQuestion[]): Promise<SingleQuestion[]> {
+  if (!rows.length) return rows
+  const payload = rows.map((q) => ({ question: q.question, options: q.options, correct: q.correct }))
+  const result = await chatCompletion(
+    [
+      {
+        role: "system",
+        content:
+          "You are an MCQ validator. Verify each question and correct the `correct` index if needed. Output ONLY JSON: {\"questions\":[{\"correct\":0}]}"
+      },
+      { role: "user", content: `Validate factual correctness and return corrected indexes only:\n${JSON.stringify(payload)}` }
+    ],
+    { temperature: 0, max_tokens: 4096 }
+  )
+  if (!result.ok) return rows
+  try {
+    const text = result.content.trim().replace(/^```(?:json)?\s*|\s*```$/g, "")
+    const parsed = JSON.parse(text) as { questions?: Array<{ correct?: number }> }
+    if (!Array.isArray(parsed.questions)) return rows
+    return rows.map((q, i) => {
+      const c = Number(parsed.questions?.[i]?.correct)
+      if (!Number.isFinite(c) || c < 0 || c > 3) return q
+      return { ...q, correct: c }
+    })
+  } catch {
+    return rows
+  }
 }
 
 export async function POST(req: Request) {
@@ -312,12 +395,16 @@ export async function POST(req: Request) {
     ? body.questionTypes.map((t: any) => String(t).toLowerCase().trim()).filter((t: string) => QUESTION_TYPES.includes(t as any))
     : []
   const audienceSegment =
-    typeof body?.audienceSegment === "string" && ["btech", "pg", "business", "bipc", "digital_forensic", "elite_sciences", "bba", "ece", "aeronautical"].includes(body.audienceSegment)
+    typeof body?.audienceSegment === "string" && ["btech", "pg", "business", "bipc", "digital_forensic", "elite_sciences", "bba", "ece", "aeronautical", "school"].includes(body.audienceSegment)
       ? body.audienceSegment
       : undefined
   const department =
     typeof body?.department === "string" && body.department.trim() && DEPARTMENT_LABELS[body.department.trim().toLowerCase()]
       ? body.department.trim().toLowerCase()
+      : undefined
+  const schoolClass =
+    typeof body?.schoolClass === "string" && /^(?:[1-9]|1[0-2])$/.test(body.schoolClass.trim())
+      ? body.schoolClass.trim()
       : undefined
 
   const systemMsg = "Quiz generator. Output ONLY valid JSON. No text, no markdown. Start with { end with }."
@@ -325,7 +412,7 @@ export async function POST(req: Request) {
   const langMultiplier = languages.length > 1 ? Math.min(languages.length, 4) : 1
 
   async function runOneShot(chunkCount: number) {
-    const prompt = buildPrompt(topic, chunkCount, languages, difficulties, questionTypes, audienceSegment, department)
+    const prompt = buildPrompt(topic, chunkCount, languages, difficulties, questionTypes, audienceSegment, department, schoolClass)
     const estimatedTokens = Math.ceil((chunkCount * 280 + 600) * langMultiplier)
     const maxTokens = Math.min(16384, Math.max(2048, estimatedTokens))
     const result = await chatCompletion(
@@ -350,6 +437,18 @@ export async function POST(req: Request) {
   }
 
   try {
+    const existingQuizzes = await getQuizzes()
+    const existingStems = new Set<string>()
+    for (const qz of existingQuizzes.slice(0, 120)) {
+      for (const q of qz.questions ?? []) {
+        if (q?.question) existingStems.add(normalizeQuestionStem(String(q.question)))
+      }
+      for (const mq of qz.questionsMultiLang ?? []) {
+        const t = mq?.translations?.en || Object.values(mq?.translations ?? {})[0]
+        if (t && typeof t.question === "string") existingStems.add(normalizeQuestionStem(t.question))
+      }
+    }
+
     if (languages.length === 1 && count > 6) {
       const sizes = chunkSizes(count, 5)
       const merged: SingleQuestion[] = []
@@ -369,7 +468,12 @@ export async function POST(req: Request) {
         }
         merged.push(...norm)
       }
-      return NextResponse.json({ ok: true, questions: merged, count: merged.length })
+      let finalRows = dedupeSingleQuestions(merged, existingStems).slice(0, count)
+      finalRows = await verifyAnswersWithAi(finalRows)
+      if (finalRows.length < Math.max(3, Math.ceil(count * 0.7))) {
+        return NextResponse.json({ ok: false, error: "AI output had too many duplicates/invalid answers. Try a more specific topic." }, { status: 502 })
+      }
+      return NextResponse.json({ ok: true, questions: finalRows, count: finalRows.length })
     }
 
     const r = await runOneShot(count)
@@ -388,7 +492,7 @@ export async function POST(req: Request) {
 
     if (parsed.questionsMultiLang && Array.isArray(parsed.questionsMultiLang)) {
       const langs = Array.isArray(parsed.languages) && parsed.languages.length ? parsed.languages : languages
-      const questionsMultiLang = normalizeMultiLang(parsed.questionsMultiLang, langs)
+      const questionsMultiLang = dedupeMultiLangQuestions(normalizeMultiLang(parsed.questionsMultiLang, langs), langs, existingStems).slice(0, count)
       if (questionsMultiLang.length === 0) {
         return NextResponse.json({
           ok: false,
@@ -397,7 +501,8 @@ export async function POST(req: Request) {
       }
       return NextResponse.json({ ok: true, questionsMultiLang, languages: langs, count: questionsMultiLang.length })
     }
-    const questions = normalizeSingle(parsed.questions ?? [])
+    let questions = dedupeSingleQuestions(normalizeSingle(parsed.questions ?? []), existingStems).slice(0, count)
+    questions = await verifyAnswersWithAi(questions)
     if (questions.length === 0) {
       return NextResponse.json({
         ok: false,

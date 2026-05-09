@@ -6,6 +6,7 @@ import { logIntegrityEventServer } from "@/lib/integrityLogger"
 import { saveCompletion } from "@/lib/quizCompletions"
 import { rateLimit } from "@/lib/rateLimit"
 import { getUserStats, setUserStats } from "@/lib/userStats"
+import { verifyQuizAttemptToken } from "@/lib/quizAttemptToken"
 
 type UserStats = {
   username: string
@@ -16,6 +17,13 @@ type UserStats = {
   completedByQuiz?: Record<string, { score: number; total: number; totalTimeSeconds: number; rows?: { question: string; correctAnswer: string; userAnswer: string; correct: boolean; timeSeconds: number; explanation?: string }[] }>
   achievements: string[]
   history: { date: string; score: number; total: number; totalTimeSeconds: number }[]
+  startedQuizId?: string
+  startedQuizCode?: string
+  startedAt?: number
+  startedAttemptNonce?: string
+  startedAttemptExpiresAt?: number
+  integrityStrikes?: number
+  integrityStrikesQuizId?: string
 }
 
 const BADGES: Record<string, { icon: string; label: string; check: (s: UserStats, ctx?: { rank?: number }) => boolean }> = {
@@ -87,13 +95,17 @@ export async function GET() {
     totalTimeSeconds: entry.totalTimeSeconds
   }))
 
+  const rawFull = await getUserStats(username)
+
   return NextResponse.json({
     ok: true,
     data: {
       streak: user.streak,
       achievements: user.achievements,
       history: user.history.slice(-20).reverse(),
-      completedPapers
+      completedPapers,
+      integrityStrikes: Number(rawFull?.integrityStrikes ?? 0) || 0,
+      integrityStrikesQuizId: rawFull?.integrityStrikesQuizId ?? null
     }
   })
 }
@@ -110,6 +122,9 @@ export async function POST(req: Request) {
   if (!date || typeof score !== "number" || typeof total !== "number") {
     return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 })
   }
+  if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) {
+    return NextResponse.json({ ok: false, error: "Invalid score payload." }, { status: 400 })
+  }
   const totalSec = typeof totalTimeSeconds === "number" ? totalTimeSeconds : 0
   const minTime = Math.max(0, total) * 2
   if (totalSec < minTime || totalSec > 7200) {
@@ -118,6 +133,26 @@ export async function POST(req: Request) {
 
   const key = username.toLowerCase()
   const raw = await getUserStats(username)
+  if (quizId && typeof quizId === "string") {
+    const tokenRaw = typeof body?.attemptToken === "string" ? body.attemptToken.trim() : ""
+    const token = verifyQuizAttemptToken(tokenRaw)
+    if (!token) {
+      return NextResponse.json({ ok: false, error: "Invalid or expired attempt token." }, { status: 403 })
+    }
+    if (token.u !== key || token.q !== quizId) {
+      return NextResponse.json({ ok: false, error: "Attempt token mismatch." }, { status: 403 })
+    }
+    const startedQuizId = String(raw?.startedQuizId ?? "")
+    const startedNonce = String(raw?.startedAttemptNonce ?? "")
+    const startedExp = Number(raw?.startedAttemptExpiresAt ?? 0)
+    const startedAt = Number(raw?.startedAt ?? 0)
+    if (!startedQuizId || startedQuizId !== quizId || !startedNonce || startedNonce !== token.n) {
+      return NextResponse.json({ ok: false, error: "Quiz start session mismatch." }, { status: 403 })
+    }
+    if (!startedExp || Date.now() > startedExp || !startedAt || Date.now() - startedAt > 1000 * 60 * 120) {
+      return NextResponse.json({ ok: false, error: "Quiz attempt session expired. Please start again." }, { status: 403 })
+    }
+  }
   let user: UserStats = {
     username: key,
     streak: 0,
@@ -126,7 +161,9 @@ export async function POST(req: Request) {
     completedQuizIds: raw?.completedQuizIds,
     completedByQuiz: raw?.completedByQuiz as UserStats["completedByQuiz"],
     achievements: raw?.achievements ?? [],
-    history: raw?.history ?? []
+    history: raw?.history ?? [],
+    integrityStrikes: raw?.integrityStrikes,
+    integrityStrikesQuizId: raw?.integrityStrikesQuizId
   }
 
   const dateStr = String(date).slice(0, 10)
@@ -148,6 +185,10 @@ export async function POST(req: Request) {
         timeSeconds: Number(r?.timeSeconds ?? 0),
         explanation: r?.explanation != null ? String(r.explanation) : undefined
       }))
+      const derivedScore = entry.rows.reduce((acc, r) => acc + (r.correct ? 1 : 0), 0)
+      if (derivedScore !== score) {
+        return NextResponse.json({ ok: false, error: "Score mismatch detected." }, { status: 400 })
+      }
       const analysis = analyzeTimeConsistency(entry.rows)
       if (analysis.suspicious) {
         await logIntegrityEventServer(
@@ -160,6 +201,10 @@ export async function POST(req: Request) {
     }
     user.completedByQuiz[quizId] = entry
     await saveCompletion(key, quizId, dateStr, { score: entry.score, total: entry.total, totalTimeSeconds: entry.totalTimeSeconds, rows: entry.rows }).catch(() => { })
+    if (raw?.integrityStrikesQuizId === quizId) {
+      user.integrityStrikes = 0
+      user.integrityStrikesQuizId = undefined
+    }
   }
 
   user.history = user.history ?? []
@@ -174,6 +219,14 @@ export async function POST(req: Request) {
     const ctx = id === "top_3" ? { rank } : undefined
     const check = id === "top_3" ? (rank != null && rank <= 3) : def.check(user, ctx)
     if (check) user.achievements.push(id)
+  }
+
+  if (quizId && typeof quizId === "string" && quizId.trim()) {
+    user.startedQuizId = undefined
+    user.startedQuizCode = undefined
+    user.startedAt = undefined
+    user.startedAttemptNonce = undefined
+    user.startedAttemptExpiresAt = undefined
   }
 
   const ok = await setUserStats(username, user)

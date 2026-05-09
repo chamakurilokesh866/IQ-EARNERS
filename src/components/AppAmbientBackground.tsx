@@ -27,6 +27,7 @@ export default function AppAmbientBackground() {
       aria-hidden
     >
       <div className="absolute inset-0 bg-[#06040f]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,8,20,0.82)_0%,rgba(7,8,20,0.64)_34%,rgba(7,8,20,0.82)_100%)]" />
 
       {orbs ? (
         <>
@@ -57,6 +58,10 @@ export default function AppAmbientBackground() {
         className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(124,58,237,0.1),transparent_55%)]"
         aria-hidden
       />
+      <div
+        className="absolute inset-0 bg-[radial-gradient(ellipse_75%_45%_at_50%_115%,rgba(6,182,212,0.12),transparent_60%)]"
+        aria-hidden
+      />
 
       <div
         className="absolute inset-0 opacity-[0.04]"
@@ -72,6 +77,20 @@ export default function AppAmbientBackground() {
         style={{ backgroundImage: "url('/noise.svg')" }}
         aria-hidden
       />
+
+      {!reduceMotion ? (
+        <motion.div
+          className="absolute inset-0 opacity-[0.05] mix-blend-soft-light"
+          animate={{ backgroundPositionX: ["0%", "100%", "0%"], backgroundPositionY: ["0%", "100%", "0%"] }}
+          transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            backgroundImage:
+              "linear-gradient(120deg, rgba(168,85,247,0.2), transparent 35%, rgba(34,211,238,0.16) 60%, transparent 80%)",
+            backgroundSize: "240% 240%",
+          }}
+          aria-hidden
+        />
+      ) : null}
 
       {!reduceMotion ? (
         <motion.div

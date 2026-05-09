@@ -6,6 +6,7 @@ import { getLeaderboard, upsertByName, replaceAll } from "@/lib/leaderboard"
 import { flagUnusuallyFastScore } from "@/lib/smartIntegrity"
 import { logIntegrityEventServer } from "@/lib/integrityLogger"
 import { chatCompletion } from "@/lib/aiGateway"
+import { getCompletion } from "@/lib/quizCompletions"
 
 function sortLeaderboard(entries: { name: string; score: number; totalTimeSeconds?: number; country?: string; id?: string; tournamentId?: string }[]): (typeof entries[0] & { rank: number })[] {
   const sorted = [...entries].sort((a, b) => {
@@ -66,6 +67,23 @@ export async function POST(req: Request) {
       const { getProfileByUid: getProf } = await import("@/lib/profiles")
       const prof = await getProf(uid)
       if (prof?.username) name = prof.username
+    }
+    if (!auth.ok && uid) {
+      const quizId = typeof body.item.quizId === "string" ? body.item.quizId.trim() : ""
+      if (!quizId) {
+        return NextResponse.json({ ok: false, error: "quizId is required for score submission." }, { status: 400 })
+      }
+      const d = new Date()
+      const todayLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      const completion = await getCompletion(name, quizId, todayLocal)
+      if (!completion.completed || !completion.entry) {
+        return NextResponse.json({ ok: false, error: "No verified completion found for this quiz." }, { status: 403 })
+      }
+      // Use server-side completion as source of truth; ignore client-provided score/time.
+      body.item.score = Number(completion.entry.score ?? body.item.score)
+      if (typeof completion.entry.totalTimeSeconds === "number") {
+        totalTimeSeconds = completion.entry.totalTimeSeconds
+      }
     }
     const tournamentId = body.item.tournamentId && String(body.item.tournamentId).trim() ? String(body.item.tournamentId).trim() : undefined
     const score = body.item.score

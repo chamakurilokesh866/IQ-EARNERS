@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { cookies } from "next/headers"
-import { getPayments } from "@/lib/payments"
+import { getAdminPendingApprovalPayments } from "@/lib/payments"
 
 export const dynamic = "force-dynamic"
 
-const POLL_MS = 1000
+const POLL_MS = 500
 
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies()
@@ -25,8 +25,7 @@ export async function GET(req: NextRequest) {
 
   const writeEvent = async () => {
     try {
-      const arr = await getPayments()
-      const pending = arr.filter((p: { status?: string }) => p.status === "pending_approval")
+      const pending = await getAdminPendingApprovalPayments()
       const payload = `data: ${JSON.stringify({ data: pending })}\n\n`
       await writer.write(new TextEncoder().encode(payload))
     } catch {

@@ -13,6 +13,7 @@ html {
   -moz-text-size-adjust: 100%;
   text-size-adjust: 100%;
   overflow-x: hidden !important;
+  overflow-y: auto;
   width: 100%;
   max-width: 100vw;
 }
@@ -76,6 +77,9 @@ footer, .lb-table-card, .btn-paper, .intro-page-scroll {
 
 /* Fixed left dock (lg+): centered max-width shells leave a wide empty strip beside the rail */
 @media (min-width: 1024px) {
+  #main-content[data-vertical-sidebar="true"] {
+    padding-left: 112px !important;
+  }
   #main-content[data-vertical-sidebar="true"] .max-w-3xl.mx-auto,
   #main-content[data-vertical-sidebar="true"] .max-w-4xl.mx-auto,
   #main-content[data-vertical-sidebar="true"] .max-w-5xl.mx-auto,
@@ -123,19 +127,21 @@ footer, .lb-table-card, .btn-paper, .intro-page-scroll {
   border-color: #cbd5e1 !important;
 }
 
+/* Clean, unified dark theme baseline */
 body {
   min-height: 100dvh;
   min-width: 0;
-  background-color: #060a14 !important;
+  background-color: #020205 !important;
   color: #e2e8f0;
   font-family: var(--font-sans), system-ui, sans-serif;
   overflow-x: hidden !important;
+  overflow-y: auto;
   width: 100%;
   max-width: 100vw;
   margin: 0 !important;
   padding: 0 !important;
   position: relative;
-  transition: background-color 0.33s cubic-bezier(0.4, 0, 0.2, 1), color 0.33s ease;
+  transition: background-color 0.33s var(--nebula-ease), color 0.33s ease;
   touch-action: manipulation;
 }
 
@@ -144,6 +150,7 @@ body {
   padding-top: 0 !important;
   position: relative;
   z-index: 1;
+  overflow-y: visible !important;
 }
 
 /* Single global noise tile — one composited layer, matches public/noise.svg */
@@ -171,13 +178,13 @@ html[data-theme="dark"] body::before {
   mix-blend-mode: overlay;
 }
 
-/* Radial backdrop - adjusted for light theme */
+/* Deep space backdrop */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(circle at 50% -20%, #eff6ff 0%, #f3f5fb 100%);
+  background: radial-gradient(circle at 50% -20%, #05060f 0%, #020205 100%);
   pointer-events: none;
 }
 
@@ -2729,6 +2736,505 @@ button:active,
   }
 }
 
+/* -------------------- Global UI Refresh V2 -------------------- */
+.ui-refresh-v2 {
+  --ui-bg: #06040f;
+  --ui-surface: rgba(18, 24, 44, 0.72);
+  --ui-surface-strong: rgba(19, 28, 52, 0.86);
+  --ui-border: rgba(148, 163, 184, 0.2);
+  --ui-text: #f8fafc;
+  --ui-text-soft: rgba(226, 232, 240, 0.78);
+  --ui-text-muted: rgba(226, 232, 240, 0.66);
+  /* Fluid type — Tailwind `text-*` on the same element still wins (higher specificity) */
+  --ui-type-h1: clamp(1.875rem, 2.75vw + 1rem, 3.35rem);
+  --ui-type-h2: clamp(1.5rem, 1.65vw + 0.9rem, 2.35rem);
+  --ui-type-h3: clamp(1.25rem, 1.1vw + 0.85rem, 1.75rem);
+  --ui-type-h4: clamp(1.1rem, 0.6vw + 0.8rem, 1.35rem);
+  --ui-type-h5: clamp(1rem, 0.35vw + 0.78rem, 1.15rem);
+  --ui-type-h6: clamp(0.9375rem, 0.25vw + 0.75rem, 1.05rem);
+  --ui-type-body: clamp(0.9375rem, 0.2vw + 0.85rem, 1.0625rem);
+  --ui-leading-tight: 1.15;
+  --ui-leading-snug: 1.28;
+  --ui-leading-body: 1.62;
+  --ui-section-gap: clamp(1.75rem, 4vw, 3.25rem);
+  --ui-block-gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+.ui-refresh-v2 main {
+  color: var(--ui-text);
+}
+
+/* Semantic typography + vertical rhythm (pages using bare h1–h6 / paragraphs) */
+.ui-refresh-v2 main :where(h1),
+.ui-refresh-v2 .app-page-root :where(h1),
+.ui-refresh-v2 article :where(h1) {
+  font-size: var(--ui-type-h1);
+  line-height: var(--ui-leading-tight);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  margin: 0 0 0.45em;
+}
+
+.ui-refresh-v2 main :where(h2),
+.ui-refresh-v2 .app-page-root :where(h2),
+.ui-refresh-v2 article :where(h2) {
+  font-size: var(--ui-type-h2);
+  line-height: var(--ui-leading-snug);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: var(--ui-section-gap) 0 0.4em;
+}
+
+.ui-refresh-v2 main :where(h2):first-child,
+.ui-refresh-v2 .app-page-root :where(h2):first-child,
+.ui-refresh-v2 article :where(h2):first-child {
+  margin-top: 0;
+}
+
+.ui-refresh-v2 main :where(h3),
+.ui-refresh-v2 .app-page-root :where(h3),
+.ui-refresh-v2 article :where(h3) {
+  font-size: var(--ui-type-h3);
+  line-height: var(--ui-leading-snug);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  margin: var(--ui-block-gap) 0 0.35em;
+}
+
+.ui-refresh-v2 main :where(h3):first-child,
+.ui-refresh-v2 .app-page-root :where(h3):first-child,
+.ui-refresh-v2 article :where(h3):first-child {
+  margin-top: 0;
+}
+
+.ui-refresh-v2 main :where(h4),
+.ui-refresh-v2 .app-page-root :where(h4),
+.ui-refresh-v2 article :where(h4) {
+  font-size: var(--ui-type-h4);
+  line-height: var(--ui-leading-snug);
+  font-weight: 700;
+  margin: 1.1em 0 0.3em;
+}
+
+.ui-refresh-v2 main :where(h5),
+.ui-refresh-v2 .app-page-root :where(h5),
+.ui-refresh-v2 article :where(h5) {
+  font-size: var(--ui-type-h5);
+  line-height: var(--ui-leading-snug);
+  font-weight: 700;
+  margin: 1em 0 0.25em;
+}
+
+.ui-refresh-v2 main :where(h6),
+.ui-refresh-v2 .app-page-root :where(h6),
+.ui-refresh-v2 article :where(h6) {
+  font-size: var(--ui-type-h6);
+  line-height: var(--ui-leading-snug);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  margin: 1em 0 0.25em;
+}
+
+.ui-refresh-v2 main :where(p),
+.ui-refresh-v2 .app-page-root :where(p),
+.ui-refresh-v2 article :where(p) {
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-body);
+  margin: 0 0 0.9em;
+}
+
+.ui-refresh-v2 main :where(p:last-child),
+.ui-refresh-v2 .app-page-root :where(p:last-child),
+.ui-refresh-v2 article :where(p:last-child) {
+  margin-bottom: 0;
+}
+
+.ui-refresh-v2 main :where(ul, ol),
+.ui-refresh-v2 .app-page-root :where(ul, ol),
+.ui-refresh-v2 article :where(ul, ol) {
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-body);
+  margin: 0 0 0.9em;
+  padding-left: 1.25em;
+}
+
+.ui-refresh-v2 main :where(li + li),
+.ui-refresh-v2 .app-page-root :where(li + li),
+.ui-refresh-v2 article :where(li + li) {
+  margin-top: 0.35em;
+}
+
+/* Optional: long-form blocks (legal, help, articles) */
+.ui-refresh-v2 .prose-flow {
+  max-width: min(70ch, 100%);
+}
+
+.ui-refresh-v2 .prose-flow > * + * {
+  margin-top: 0.85em;
+}
+
+.ui-refresh-v2 .prose-flow > h2 {
+  margin-top: 1.75em;
+}
+
+.ui-refresh-v2 .prose-flow > h2:first-child {
+  margin-top: 0;
+}
+
+.ui-refresh-v2 .prose-flow p {
+  color: var(--ui-text-soft);
+  max-width: 70ch;
+}
+
+.ui-refresh-v2 .prose-flow :where(ul, ol) {
+  max-width: 70ch;
+}
+
+html[data-theme="light"] .ui-refresh-v2 .prose-flow p {
+  color: rgba(15, 23, 42, 0.78);
+}
+
+html[data-theme="light"] .ui-refresh-v2 main :where(h6),
+html[data-theme="light"] .ui-refresh-v2 .app-page-root :where(h6),
+html[data-theme="light"] .ui-refresh-v2 article :where(h6) {
+  color: rgba(51, 65, 85, 0.9);
+}
+
+/* Make "muted white" text readable throughout the app */
+.ui-refresh-v2 .text-white\/30 { color: rgba(226, 232, 240, 0.62) !important; }
+.ui-refresh-v2 .text-white\/40 { color: rgba(226, 232, 240, 0.72) !important; }
+.ui-refresh-v2 .text-white\/50 { color: rgba(226, 232, 240, 0.82) !important; }
+
+/* Coherent card/shell look across pages */
+.ui-refresh-v2 .card,
+.ui-refresh-v2 .glass-card,
+.ui-refresh-v2 .app-card,
+.ui-refresh-v2 [class*="bg-white/"][class*="border-white/"] {
+  background: linear-gradient(155deg, var(--ui-surface), var(--ui-surface-strong)) !important;
+  border-color: var(--ui-border) !important;
+  box-shadow:
+    0 10px 30px rgba(2, 6, 23, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.ui-refresh-v2 button,
+.ui-refresh-v2 .btn,
+.ui-refresh-v2 [role="button"] {
+  transition: transform 180ms ease, box-shadow 220ms ease, background-color 220ms ease, border-color 220ms ease;
+}
+
+.ui-refresh-v2 button:hover,
+.ui-refresh-v2 .btn:hover,
+.ui-refresh-v2 [role="button"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.35);
+}
+
+.ui-refresh-v2 #main-content > * {
+  animation: uiRefreshFadeUp 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes uiRefreshFadeUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* -------------------- Page-specific Premium Pass -------------------- */
+.ui-refresh-v2 .intro-premium-shell,
+.ui-refresh-v2 .mock-premium-shell,
+.ui-refresh-v2 .org-premium-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.ui-refresh-v2 .intro-premium-shell::before,
+.ui-refresh-v2 .mock-premium-shell::before,
+.ui-refresh-v2 .org-premium-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.28;
+  background:
+    radial-gradient(42% 30% at 14% 10%, rgba(139, 92, 246, 0.3), transparent 72%),
+    radial-gradient(38% 28% at 86% 84%, rgba(6, 182, 212, 0.24), transparent 70%);
+  animation: pageGlowDrift 22s ease-in-out infinite alternate;
+}
+
+.ui-refresh-v2 .daily-quiz-premium {
+  background:
+    radial-gradient(90% 70% at 0% 0%, rgba(124, 58, 237, 0.1), transparent 55%),
+    radial-gradient(70% 60% at 100% 100%, rgba(14, 165, 233, 0.1), transparent 58%),
+    linear-gradient(165deg, #f8fbff 0%, #eef2ff 48%, #e2e8f0 100%);
+}
+
+html[data-theme="dark"] .ui-refresh-v2 .daily-quiz-premium {
+  background:
+    radial-gradient(80% 60% at 0% 0%, rgba(124, 58, 237, 0.18), transparent 55%),
+    radial-gradient(65% 55% at 100% 100%, rgba(6, 182, 212, 0.14), transparent 58%),
+    linear-gradient(160deg, #0b1220 0%, #111827 54%, #0f172a 100%);
+}
+
+.ui-refresh-v2 .intro-premium-hero,
+.ui-refresh-v2 .intro-premium-panel,
+.ui-refresh-v2 .org-premium-shell .rounded-2xl,
+.ui-refresh-v2 .mock-premium-shell .rounded-2xl,
+.ui-refresh-v2 .mock-premium-shell .rounded-3xl {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.ui-refresh-v2 .intro-premium-panel {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.36), rgba(30, 41, 59, 0.22));
+}
+
+.ui-refresh-v2 .org-premium-header {
+  box-shadow: 0 10px 26px rgba(2, 6, 23, 0.35);
+}
+
+.ui-refresh-v2 .mock-premium-shell h1,
+.ui-refresh-v2 .mock-premium-shell h2,
+.ui-refresh-v2 .mock-premium-shell h3,
+.ui-refresh-v2 .org-premium-shell h1,
+.ui-refresh-v2 .org-premium-shell h2,
+.ui-refresh-v2 .org-premium-shell h3,
+.ui-refresh-v2 .intro-premium-shell h1,
+.ui-refresh-v2 .intro-premium-shell h2,
+.ui-refresh-v2 .intro-premium-shell h3 {
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
+@keyframes pageGlowDrift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(0, -1%, 0) scale(1.03); }
+}
+
+/* -------------------- Unified component system -------------------- */
+.ui-refresh-v2 .ui-chrome-nav,
+.ui-refresh-v2 .ui-chrome-sidebar {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: linear-gradient(170deg, rgba(8, 12, 24, 0.8), rgba(17, 24, 39, 0.72)) !important;
+  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ui-refresh-v2 .sidebar-neon-shell {
+  background:
+    linear-gradient(180deg, rgba(8, 12, 28, 0.9), rgba(7, 10, 23, 0.82)) !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
+  box-shadow:
+    0 24px 50px rgba(2, 6, 23, 0.58),
+    0 0 0 1px rgba(148, 163, 184, 0.08) inset,
+    0 0 26px rgba(99, 102, 241, 0.18);
+}
+
+.ui-refresh-v2 .sidebar-neon-item {
+  border: 1px solid transparent;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 220ms ease;
+}
+
+.ui-refresh-v2 .sidebar-neon-item:hover {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(99, 102, 241, 0.32);
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.42), 0 0 14px rgba(99, 102, 241, 0.2);
+  transform: translateY(-1px);
+}
+
+.ui-refresh-v2 .sidebar-neon-item.sidebar-neon-item-active {
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.28), rgba(34, 211, 238, 0.18));
+  border-color: rgba(103, 232, 249, 0.42);
+  color: #c4b5fd !important;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.48), 0 0 20px rgba(103, 232, 249, 0.2);
+}
+
+.ui-refresh-v2 .sidebar-neon-login {
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.24), rgba(34, 211, 238, 0.16)) !important;
+  border-color: rgba(129, 140, 248, 0.45) !important;
+}
+
+.ui-refresh-v2 .sidebar-neon-logout:hover {
+  border-color: rgba(248, 113, 113, 0.38);
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.18);
+}
+
+/* -------------------- Unified background (no split panels) -------------------- */
+.ui-refresh-v2,
+.ui-refresh-v2 body,
+.ui-refresh-v2 #main-content,
+.ui-refresh-v2 main,
+.ui-refresh-v2 .app-page-surface {
+  background: transparent !important;
+}
+
+/* Single global texture-driven backdrop */
+html[data-theme="dark"] .ui-refresh-v2 body {
+  background-color: #05070f !important;
+}
+
+html[data-theme="dark"] .ui-refresh-v2 body::before {
+  opacity: 0.26;
+  mix-blend-mode: soft-light;
+  background-image: url("/noise.svg");
+  background-size: 180px 180px;
+}
+
+html[data-theme="dark"] .ui-refresh-v2 body::after {
+  background:
+    radial-gradient(120% 70% at 50% -20%, rgba(124, 58, 237, 0.07), transparent 58%),
+    radial-gradient(90% 60% at 50% 120%, rgba(34, 211, 238, 0.06), transparent 62%),
+    #05070f !important;
+}
+
+/* Remove section-to-section background differences */
+.ui-refresh-v2 .intro-premium-shell::before,
+.ui-refresh-v2 .mock-premium-shell::before,
+.ui-refresh-v2 .org-premium-shell::before {
+  opacity: 0.12;
+  background:
+    radial-gradient(42% 30% at 14% 10%, rgba(139, 92, 246, 0.16), transparent 72%),
+    radial-gradient(38% 28% at 86% 84%, rgba(6, 182, 212, 0.14), transparent 70%);
+}
+
+.ui-refresh-v2 .intro-page-scroll {
+  background: transparent !important;
+}
+
+/* Sidebar blends into same page background */
+.ui-refresh-v2 .sidebar-neon-shell,
+.ui-refresh-v2 .ui-chrome-sidebar {
+  background: rgba(5, 8, 18, 0.52) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow:
+    0 18px 42px rgba(2, 6, 23, 0.44),
+    0 0 0 1px rgba(148, 163, 184, 0.08) inset !important;
+}
+
+/* One clean card style across pages */
+.ui-refresh-v2 .qp-card,
+.ui-refresh-v2 .intro-premium-panel,
+.ui-refresh-v2 .leaderboard-premium-shell .rounded-\[2\.5rem\],
+.ui-refresh-v2 .leaderboard-premium-shell .rounded-3xl,
+.ui-refresh-v2 .mock-premium-shell .rounded-2xl,
+.ui-refresh-v2 .org-premium-shell .rounded-2xl {
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.58), rgba(30, 41, 59, 0.46)) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.34) !important;
+}
+
+.ui-refresh-v2 .ui-chrome-nav nav a,
+.ui-refresh-v2 .ui-chrome-sidebar nav a {
+  transition: color 160ms ease, background-color 180ms ease, transform 180ms ease;
+}
+
+.ui-refresh-v2 .ui-chrome-nav nav a:hover,
+.ui-refresh-v2 .ui-chrome-sidebar nav a:hover {
+  transform: translateY(-1px);
+}
+
+.ui-refresh-v2 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.ui-refresh-v2 textarea,
+.ui-refresh-v2 select {
+  border-color: rgba(148, 163, 184, 0.26) !important;
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.55), rgba(30, 41, 59, 0.42)) !important;
+  color: #f8fafc !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ui-refresh-v2 ::placeholder {
+  color: rgba(203, 213, 225, 0.58) !important;
+}
+
+.ui-refresh-v2 input:focus,
+.ui-refresh-v2 textarea:focus,
+.ui-refresh-v2 select:focus {
+  border-color: rgba(129, 140, 248, 0.62) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+}
+
+.ui-refresh-v2 table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.ui-refresh-v2 th,
+.ui-refresh-v2 td {
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+.ui-refresh-v2 th {
+  color: rgba(226, 232, 240, 0.88) !important;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.ui-refresh-v2 [class*="modal"],
+.ui-refresh-v2 [class*="Modal"],
+.ui-refresh-v2 [class*="overlay"] {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-refresh-v2 .admin-btn,
+.ui-refresh-v2 button[class*="admin-btn"] {
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.28);
+}
+
+.ui-refresh-v2 button,
+.ui-refresh-v2 .btn,
+.ui-refresh-v2 a[class*="rounded"] {
+  position: relative;
+  overflow: hidden;
+}
+
+.ui-refresh-v2 button::after,
+.ui-refresh-v2 .btn::after,
+.ui-refresh-v2 a[class*="rounded"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.28), transparent 55%);
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.ui-refresh-v2 button:active::after,
+.ui-refresh-v2 .btn:active::after,
+.ui-refresh-v2 a[class*="rounded"]:active::after {
+  opacity: 1;
+}
+
+.ui-refresh-v2 .fab-neon {
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.44), 0 0 0 1px rgba(255,255,255,0.05) inset;
+}
+
+.ui-refresh-v2 .fab-neon:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.54), 0 0 18px rgba(56, 189, 248, 0.35);
+}
+
+.ui-refresh-v2 .leaderboard-premium-shell h1 {
+  text-shadow: 0 0 22px rgba(99, 102, 241, 0.18);
+}
+
+.ui-refresh-v2 .leaderboard-premium-shell .rounded-\[2\.5rem\],
+.ui-refresh-v2 .leaderboard-premium-shell .rounded-3xl {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.65), rgba(30, 41, 59, 0.52)) !important;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.35);
+}
+
 .redirect-orb-float {
   animation: redirectOrbFloat 4s ease-in-out infinite;
 }
@@ -3016,15 +3522,17 @@ button:active,
 
 /* Intro page scroll – body scrolls normally, clip horizontal only (no scrollbar blocking) */
 .intro-page-scroll {
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: visible;
+  width: 100%;
+  max-width: 100%;
   /* Permanent background — always rendered by CSS, never flickers on JS mount */
   background:
     radial-gradient(ellipse 70% 45% at 18% 5%, rgba(46, 124, 246, 0.07) 0%, transparent 60%),
     radial-gradient(ellipse 55% 40% at 82% 95%, rgba(245, 179, 1, 0.05) 0%, transparent 55%),
     radial-gradient(ellipse 50% 35% at 15% 70%, rgba(46, 124, 246, 0.04) 0%, transparent 55%),
     #000;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 /* Dark: no solid base — show global html grain + body noise (keeps intro tint blobs only) */
@@ -3034,7 +3542,7 @@ html[data-theme="dark"] #main-content .intro-page-scroll {
     radial-gradient(ellipse 55% 40% at 82% 95%, rgba(245, 179, 1, 0.06) 0%, transparent 55%),
     radial-gradient(ellipse 50% 35% at 15% 70%, rgba(46, 124, 246, 0.05) 0%, transparent 55%),
     transparent !important;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 /* Intro page – hide scrollbar on PC to reduce lag */
@@ -7478,4 +7986,48 @@ html[data-theme="dark"] .app-page-surface {
 }
 html.light .app-page-surface {
   background-color: rgba(248, 250, 252, 0.92);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN ANALYTICS – Advanced Chart Animations
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes sparkDraw {
+  from { stroke-dashoffset: 300; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes chartLineDraw {
+  from { stroke-dashoffset: 2000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulseRing {
+  0%   { r: 12; opacity: 0.5; }
+  100% { r: 22; opacity: 0; }
+}
+
+@keyframes gaugeNeedle {
+  from { transform: rotate(-90deg); }
+  to   { transform: rotate(var(--needle-angle, 0deg)); }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes shimmerGlow {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }

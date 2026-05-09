@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth"
 import { chatCompletion } from "@/lib/aiGateway"
+import { dedupeByQuestionStem } from "@/lib/quizQuestionDedupe"
 
 export const maxDuration = 60
 
@@ -29,10 +30,17 @@ Example format: [{"question":"What is 2+2?","options":["3","4","5","6"],"correct
 Raw text to parse:
 ${rawText.slice(0, 45000)}`
 
-  const result = await chatCompletion([
-    { role: "system", content: "You output only valid JSON arrays. No markdown, no explanation, no code blocks." },
-    { role: "user", content: prompt }
-  ], { temperature: 0.2, max_tokens: 8192 })
+  const result = await chatCompletion(
+    [
+      {
+        role: "system",
+        content:
+          "You output only valid JSON arrays. No markdown fences, no commentary. Each object must have question, options (2-4 strings), correct (0-based index). Prefer 4 options; distractors must be distinct and wrong.",
+      },
+      { role: "user", content: prompt },
+    ],
+    { temperature: 0.2, max_tokens: 8192 }
+  )
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error ?? "AI parsing failed" }, { status: 500 })
@@ -60,5 +68,7 @@ ${rawText.slice(0, 45000)}`
     }))
     .filter((q) => q.question && q.options.length >= 2)
 
-  return NextResponse.json({ ok: true, questions })
+  const unique = dedupeByQuestionStem(questions, new Set())
+
+  return NextResponse.json({ ok: true, questions: unique })
 }

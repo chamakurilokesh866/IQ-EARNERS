@@ -29,13 +29,15 @@ type TurnstileWidgetProps = {
   appearance?: "always" | "execute" | "interaction-only"
   /** Enable debug logging to console when Turnstile loads (development only) */
   debug?: boolean
+  /** Use tighter container spacing for compact layouts (e.g. payment modal). */
+  dense?: boolean
 }
 
 const ERROR_600010 = "600010"
 const ERROR_110200 = "110200" // Domain not allowed
 
 function TurnstileWidgetInner(
-  { onVerify, onExpire, onError, theme = "auto", size = "normal", appearance = "always", debug = false }: TurnstileWidgetProps,
+  { onVerify, onExpire, onError, theme = "auto", size = "normal", appearance = "always", debug = false, dense = false }: TurnstileWidgetProps,
   ref: React.Ref<TurnstileWidgetRef>
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -136,7 +138,7 @@ function TurnstileWidgetInner(
           : null
 
   return (
-    <div className="min-h-[65px] w-full flex flex-col items-center justify-center p-1" aria-label="Verification">
+    <div className={`${dense ? "min-h-[50px] p-0.5" : "min-h-[65px] p-1"} w-full flex flex-col items-center justify-center`} aria-label="Verification">
       <div ref={containerRef} id={`turnstile-${instanceId}`} />
       {errorMessage && (
         <p className="text-xs text-amber-400/90 mt-2 text-center max-w-[280px]">{errorMessage}</p>

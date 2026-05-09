@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     webpush = require("web-push") as WebPush
-    webpush.setVapidDetails("mailto:admin@example.com", vapidPublic, vapidPrivate)
+    webpush.setVapidDetails("mailto:iqearnersteam@gmail.com", vapidPublic, vapidPrivate)
   } catch {
     return NextResponse.json({ ok: true, sent: 0, error: "web-push not installed. Run: npm install web-push" })
   }

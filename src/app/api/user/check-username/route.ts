@@ -11,12 +11,23 @@ export async function POST(req: Request) {
 
     if (!username) return NextResponse.json({ ok: false, error: "username required" }, { status: 400 })
 
-    // Basic validation to match profile/route.ts
-    const allowed = /^[A-Za-z0-9._\-@]{6,20}$/
-    if (!allowed.test(username) || !/[A-Z]/.test(username) || !/\d/.test(username) || !/[._\-@]/.test(username)) {
-        return NextResponse.json({ ok: true, available: false, error: "invalid_format" })
+    // Too short/long: don't hit DB yet (client shows rule hints)
+    if (username.length < 6 || username.length > 20) {
+      return NextResponse.json({ ok: true, pending: true })
+    }
+
+    const charsetOk = /^[A-Za-z0-9._\-@]+$/.test(username)
+    if (!charsetOk) {
+      return NextResponse.json({ ok: true, available: false, error: "invalid_format" })
     }
 
     const existing = await getProfileByUsername(username)
-    return NextResponse.json({ ok: true, available: !existing })
+    const fullyValid =
+      /[A-Z]/.test(username) && /\d/.test(username) && /[._\-@]/.test(username)
+    return NextResponse.json({
+      ok: true,
+      available: !existing,
+      ...(existing ? { error: "taken" as const } : {}),
+      rulesPending: !fullyValid
+    })
 }

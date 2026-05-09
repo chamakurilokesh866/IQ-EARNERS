@@ -43,30 +43,86 @@ async function writeToFile(arr: Payment[]): Promise<boolean> {
   }
 }
 
+function mapSupabaseRow(r: any): Payment {
+  return {
+    id: r.id,
+    orderId: r.order_id,
+    cashfreeOrderId: r.cashfree_order_id,
+    paymentSessionId: r.payment_session_id,
+    amount: Number(r.amount ?? 0),
+    type: r.type ?? "tournament",
+    status: r.status ?? "pending",
+    gateway: r.gateway ?? "qr",
+    meta: (r.meta as Record<string, unknown>) ?? {},
+    created_at: Number(r.created_at ?? 0),
+    confirmed_at: r.confirmed_at ? Number(r.confirmed_at) : undefined,
+    profileId: r.profile_id ?? undefined
+  }
+}
+
+function matchesAdminPending(p: Pick<Payment, "status" | "gateway">): boolean {
+  return p.status === "pending_approval" || (p.gateway === "cashfree" && p.status === "pending")
+}
+
+/**
+ * Only rows the admin "Pending approvals" list needs — avoids loading the full payments table.
+ * Merges file-only records (when DB insert failed) the same way as getPayments.
+ */
+export async function getAdminPendingApprovalPayments(): Promise<Payment[]> {
+  const fromFile = (await readFromFile()).filter((p) => matchesAdminPending(p as Payment))
+  const supabase = createServerSupabase()
+  if (supabase) {
+    try {
+      const [q1, q2] = await Promise.all([
+        supabase
+          .from("payments")
+          .select("*")
+          .eq("status", "pending_approval")
+          .order("created_at", { ascending: false })
+          .limit(300),
+        supabase
+          .from("payments")
+          .select("*")
+          .eq("status", "pending")
+          .eq("gateway", "cashfree")
+          .order("created_at", { ascending: false })
+          .limit(100)
+      ])
+      const rows = [...(q1.data ?? []), ...(q2.data ?? [])]
+      if (!q1.error && !q2.error && Array.isArray(rows)) {
+        const byId = new Map<string, Payment>()
+        for (const r of rows) {
+          const p = mapSupabaseRow(r)
+          byId.set(p.id, p)
+        }
+        const fromDb = [...byId.values()]
+        const dbIds = new Set(fromDb.map((p) => p.id))
+        const fromFileOnly = fromFile.filter((p) => p.id && !dbIds.has(p.id))
+        return [...fromDb, ...fromFileOnly].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const all = await getPayments()
+  return all.filter((p) => matchesAdminPending(p))
+}
+
 export async function getPayments(): Promise<Payment[]> {
+  const fromFile = await readFromFile()
   const supabase = createServerSupabase()
   if (supabase) {
     try {
       const { data, error } = await supabase.from("payments").select("*").order("created_at", { ascending: false })
       if (!error && Array.isArray(data)) {
-        return data.map((r: any) => ({
-          id: r.id,
-          orderId: r.order_id,
-          cashfreeOrderId: r.cashfree_order_id,
-          paymentSessionId: r.payment_session_id,
-          amount: Number(r.amount ?? 0),
-          type: r.type ?? "tournament",
-          status: r.status ?? "pending",
-          gateway: r.gateway ?? "qr",
-          meta: (r.meta as Record<string, unknown>) ?? {},
-          created_at: Number(r.created_at ?? 0),
-          confirmed_at: r.confirmed_at ? Number(r.confirmed_at) : undefined,
-          profileId: r.profile_id ?? undefined
-        }))
+        const fromDb = data.map((r: any) => mapSupabaseRow(r))
+        const dbIds = new Set(fromDb.map((p) => p.id))
+        const fromFileOnly = fromFile.filter((p) => p.id && !dbIds.has(p.id))
+        return [...fromDb, ...fromFileOnly].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
       }
     } catch {}
   }
-  return readFromFile()
+  return fromFile
 }
 
 export async function findPayment(by: { orderId?: string; cashfreeOrderId?: string; paymentId?: string }): Promise<Payment | null> {
@@ -211,32 +267,39 @@ export async function addPayment(payment: Payment): Promise<boolean> {
   return writeToFile(arr)
 }
 
-export async function updatePayment(id: string, updates: Partial<Payment> & { meta?: Record<string, unknown> }): Promise<boolean> {
-  const supabase = createServerSupabase()
-  if (supabase) {
-    try {
-      const payload: Record<string, unknown> = {}
-      if (updates.status !== undefined) payload.status = updates.status
-      if (updates.confirmed_at !== undefined) payload.confirmed_at = updates.confirmed_at
-      if (updates.profileId !== undefined) payload.profile_id = updates.profileId
-      if (updates.meta !== undefined) {
-        const { data: row, error: selErr } = await supabase.from("payments").select("meta").eq("id", id).single()
-        if (selErr) return false
-        const current = (row?.meta as Record<string, unknown>) || {}
-        payload.meta = { ...current, ...updates.meta }
-      }
-      if (Object.keys(payload).length === 0) return true
-      const { error } = await supabase.from("payments").update(payload).eq("id", id)
-      return !error
-    } catch {
-      return false
-    }
-  }
+async function updatePaymentInFile(id: string, updates: Partial<Payment> & { meta?: Record<string, unknown> }): Promise<boolean> {
   const arr = await readFromFile()
   const idx = arr.findIndex((p) => p.id === id)
   if (idx === -1) return false
   arr[idx] = { ...arr[idx], ...updates }
   if (updates.meta) arr[idx].meta = { ...(arr[idx].meta || {}), ...updates.meta }
   return writeToFile(arr)
+}
+
+export async function updatePayment(id: string, updates: Partial<Payment> & { meta?: Record<string, unknown> }): Promise<boolean> {
+  const supabase = createServerSupabase()
+  if (supabase) {
+    try {
+      const { data: row, error: selErr } = await supabase.from("payments").select("meta").eq("id", id).maybeSingle()
+      if (selErr || !row) {
+        return updatePaymentInFile(id, updates)
+      }
+      const payload: Record<string, unknown> = {}
+      if (updates.status !== undefined) payload.status = updates.status
+      if (updates.confirmed_at !== undefined) payload.confirmed_at = updates.confirmed_at
+      if (updates.profileId !== undefined) payload.profile_id = updates.profileId
+      if (updates.meta !== undefined) {
+        const current = (row?.meta as Record<string, unknown>) || {}
+        payload.meta = { ...current, ...updates.meta }
+      }
+      if (Object.keys(payload).length === 0) return true
+      const { error } = await supabase.from("payments").update(payload).eq("id", id)
+      if (error) return updatePaymentInFile(id, updates)
+      return true
+    } catch {
+      return updatePaymentInFile(id, updates)
+    }
+  }
+  return updatePaymentInFile(id, updates)
 }
 

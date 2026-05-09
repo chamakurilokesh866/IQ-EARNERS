@@ -6,27 +6,38 @@ import { usePathname } from "next/navigation"
 
 const REPORT_DEBOUNCE_MS = 3000
 
-function reportInspectDetected(type: string = "general") {
+async function reportInspectDetected(type: string = "general") {
   const url = typeof window !== "undefined" ? window.location?.href ?? "" : ""
-  fetch("/api/security/inspect-detected", {
+  const r = await fetch("/api/security/inspect-detected", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ url, type })
-  }).catch(() => { })
+  }).catch(() => null)
+  if (!r) return null
+  return r.json().catch(() => null)
 }
 
 export default function InspectGuard() {
   const [showWarning, setShowWarning] = useState(false)
+  const [warningLevel, setWarningLevel] = useState<1 | 2>(1)
   const pathname = usePathname() ?? ""
   const lastReportRef = useRef(0)
-  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const warningHideRef = useRef<NodeJS.Timeout | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allowDeveloperOptions, setAllowDeveloperOptions] = useState(false)
+  const [isMobileLike, setIsMobileLike] = useState(false)
 
   useEffect(() => {
     if (typeof document !== "undefined") {
       setIsAdmin(document.cookie.includes("role=admin"))
+    }
+    if (typeof window !== "undefined") {
+      const ua = navigator.userAgent || ""
+      const mobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+      const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0
+      const smallScreen = window.innerWidth <= 1024
+      setIsMobileLike(mobileUa || (touch && smallScreen))
     }
     // Fetch global setting
     fetch("/api/settings")
@@ -42,30 +53,24 @@ export default function InspectGuard() {
   const isWhitelistedPath = pathname.startsWith("/admin") || pathname.includes("/more/admin")
 
   const triggerWarning = useCallback((type: string) => {
+    // Avoid mobile false positives from dynamic browser UI / viewport changes.
+    if (isMobileLike) return
     if (isWhitelistedPath || isAdmin || allowDeveloperOptions) return // Never trigger on admin paths, for admin users, or if dev options allowed
     setShowWarning(true)
+    if (warningHideRef.current) clearTimeout(warningHideRef.current)
+    warningHideRef.current = setTimeout(() => setShowWarning(false), 3000)
     const now = Date.now()
     if (now - lastReportRef.current > REPORT_DEBOUNCE_MS) {
       lastReportRef.current = now
-      reportInspectDetected(type)
-    }
-
-    // Auto-block after 10 seconds of detection if they don't leave
-    if (!warningTimeoutRef.current) {
-      warningTimeoutRef.current = setTimeout(async () => {
-        try {
-          // Request server to block this IP
-          await fetch("/api/security/inspect-detected", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ autoBlock: true, type: `Auto-block: ${type}`, url: window.location.href })
-          })
-          // Refresh to trigger blocked gate
+      void reportInspectDetected(type).then((resp) => {
+        const strikes = Number(resp?.strikes ?? 1)
+        setWarningLevel(strikes >= 2 ? 2 : 1)
+        if (resp?.blocked) {
           window.location.reload()
-        } catch { }
-      }, 10000)
+        }
+      })
     }
-  }, [isWhitelistedPath, isAdmin, allowDeveloperOptions])
+  }, [isWhitelistedPath, isAdmin, allowDeveloperOptions, isMobileLike])
 
   const onResize = useCallback(() => {
     // Disabled devtools check via resize due to false positives with sidebars/touch
@@ -101,14 +106,14 @@ export default function InspectGuard() {
       }
     }
 
-    if (isWhitelistedPath || isAdmin || allowDeveloperOptions) return
+    if (isWhitelistedPath || isAdmin || allowDeveloperOptions || isMobileLike) return
 
     // Immediate check on mount
     onResize()
 
     // 4. Advanced DevTools Detection (Performance/Debugger Hybrid)
     const checkDebugger = () => {
-      if (isWhitelistedPath || isAdmin || allowDeveloperOptions) return
+      if (isWhitelistedPath || isAdmin || allowDeveloperOptions || isMobileLike) return
       
       const start = performance.now()
       // eslint-disable-next-line no-debugger
@@ -122,7 +127,7 @@ export default function InspectGuard() {
 
     // console.log honeypot with safer orientation typing
     const checkLogHoneypot = () => {
-      if (isWhitelistedPath || isAdmin || allowDeveloperOptions) return
+      if (isWhitelistedPath || isAdmin || allowDeveloperOptions || isMobileLike) return
       const devtools = {
         isOpen: false,
         orientation: undefined as string | undefined,
@@ -151,7 +156,7 @@ export default function InspectGuard() {
       return timer
     }
 
-    if (isWhitelistedPath || isAdmin || allowDeveloperOptions) return
+    if (isWhitelistedPath || isAdmin || allowDeveloperOptions || isMobileLike) return
 
     document.addEventListener("contextmenu", prevent)
     document.addEventListener("keydown", preventKey, true)
@@ -166,9 +171,9 @@ export default function InspectGuard() {
       window.removeEventListener("resize", onResize)
       clearInterval(debuggerInterval)
       if (logInterval) clearInterval(logInterval)
-      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current)
+      if (warningHideRef.current) clearTimeout(warningHideRef.current)
     }
-  }, [triggerWarning, isWhitelistedPath, onResize, isAdmin, allowDeveloperOptions])
+  }, [triggerWarning, isWhitelistedPath, onResize, isAdmin, allowDeveloperOptions, isMobileLike])
 
   return (
     <AnimatePresence>
@@ -188,9 +193,19 @@ export default function InspectGuard() {
               Security Violation
             </div>
             <div className="text-white/70 font-mono text-[10px] uppercase tracking-[0.2em] mb-6 leading-relaxed">
-              Debugger detected.<br />
-              IP Address logged.<br />
-              <span className="text-red-400 font-bold">Block sequence initiated...</span>
+              {warningLevel === 1 ? (
+                <>
+                  Warning 1 of 2.<br />
+                  Unauthorized inspection attempt logged.<br />
+                  <span className="text-amber-300 font-bold">Next violation will escalate.</span>
+                </>
+              ) : (
+                <>
+                  Warning 2 of 2.<br />
+                  Final warning before access restriction.<br />
+                  <span className="text-red-400 font-bold">One more violation will block this IP.</span>
+                </>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -198,12 +213,16 @@ export default function InspectGuard() {
                 <motion.div
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 10, ease: "linear" }}
+                  transition={{ duration: 3, ease: "linear" }}
                   className="h-full bg-red-600 shadow-[0_0_10px_red]"
                 />
               </div>
               <p className="text-[9px] text-red-500/50 font-bold uppercase animate-pulse">
-                System will lock in <span className="text-white">10 seconds</span>
+                {warningLevel === 1 ? (
+                  <>Please close developer tools immediately</>
+                ) : (
+                  <>Final warning: next attempt triggers access restricted</>
+                )}
               </p>
             </div>
           </div>

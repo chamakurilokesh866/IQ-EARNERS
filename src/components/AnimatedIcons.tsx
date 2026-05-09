@@ -481,3 +481,57 @@ export const DownloadIcon = ({ size = 24, className = "" }: { size?: number, cla
         />
     </motion.svg>
 )
+
+export const TrophyIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+    <motion.svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        animate={{
+            rotate: [0, -5, 5, -5, 0],
+        }}
+        transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+        }}
+    >
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </motion.svg>
+)
+
+export const FlagIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+    <motion.svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        animate={{
+            skewX: [0, 2, -2, 0],
+        }}
+        transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: "easeInOut"
+        }}
+    >
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+        <line x1="4" x2="4" y1="22" y2="15" />
+    </motion.svg>
+)

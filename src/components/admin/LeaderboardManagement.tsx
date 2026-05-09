@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react"
 
+type LeaderboardRow = { id?: string; name?: string; score?: number }
+
 export function LeaderboardManagement() {
-  const [players, setPlayers] = useState<any[]>([])
-  const [tournaments, setTournaments] = useState<any[]>([])
+  const [players, setPlayers] = useState<LeaderboardRow[]>([])
   const [name, setName] = useState("")
   const [score, setScore] = useState(0)
   useEffect(() => {
     fetch("/api/leaderboard").then(r => r.ok ? r.json() : { data: [] }).then((j) => setPlayers(j.data ?? [])).catch(() => {})
-    fetch("/api/tournaments").then(r => r.ok ? r.json() : { data: [] }).then((j) => setTournaments(j.data ?? [])).catch(() => {})
   }, [])
   const add = async () => {
     if (!name.trim() || Number.isNaN(score)) return
@@ -29,7 +29,7 @@ export function LeaderboardManagement() {
       </div>
       <ul className="mt-4 space-y-2">
         {players.map((p, idx) => (
-          <li key={idx} className="flex items-center justify-between rounded bg-navy-700 p-3">
+          <li key={p.id ?? idx} className="flex items-center justify-between rounded bg-navy-700 p-3">
             <span className="font-medium">{p.name}</span>
             <div className="flex items-center gap-3">
               <div className="text-primary font-semibold">{p.score}</div>
@@ -68,13 +68,13 @@ export function LeaderboardManagement() {
   )
 }
 
+type ReferralStats = { totalReferrals?: number; totalEarnings?: number }
+
 export function ReferralsAdmin() {
-  const [stats, setStats] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState<ReferralStats | null>(null)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      setLoading(true)
       try {
         const r = await fetch("/api/admin/referrals/stats", { credentials: "include" })
         const ct = r.headers.get("content-type") ?? ""
@@ -86,8 +86,6 @@ export function ReferralsAdmin() {
         if (!cancelled) setStats(j.data ?? null)
       } catch {
         if (!cancelled) setStats(null)
-      } finally {
-        if (!cancelled) setLoading(false)
       }
     })()
     return () => { cancelled = true }
@@ -105,46 +103,111 @@ export function ReferralsAdmin() {
   )
 }
 
+type AdminCertRow = {
+  id: string
+  username: string
+  type?: string
+  tournamentTitle?: string
+  issuedAt?: number
+  approved?: boolean
+  emailSentAt?: number | null
+  createdAt?: number
+}
+
 export function CertificateManagement() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
+  const [items, setItems] = useState<AdminCertRow[]>([])
+  const load = useCallback(() => {
     fetch("/api/admin/certificates", { cache: "no-store", credentials: "include" })
-      .then(r => r.ok ? r.json() : { data: [] }).then(j => setItems(Array.isArray(j?.data) ? j.data : [])).catch(() => {})
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j) => setItems(Array.isArray(j?.data) ? j.data : []))
+      .catch(() => {})
   }, [])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const approve = async (id: string, sendEmail: boolean) => {
+    const res = await fetch("/api/admin/certificates", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "approve", sendEmail }),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(j.error || "Approve failed")
+      return
+    }
+    load()
+  }
+
   return (
     <div className="admin-card p-6">
-      <div className="font-semibold text-lg">📜 Certificate Management</div>
-      <p className="text-sm text-navy-400 mt-1">Manage and view certificates issued to quiz winners.</p>
+      <div className="font-semibold text-lg">📜 Certificate management</div>
+      <p className="text-sm text-navy-400 mt-1">
+        New issues stay hidden from learners until you approve. Optionally email them only after approval (requires profile email).
+      </p>
       <div className="mt-4 space-y-3">
-        {items.map((x: any) => (
-          <div key={x.id} className="flex items-center justify-between rounded-xl bg-navy-700/80 p-4 border border-navy-600">
-            <div>
-              <div className="font-bold text-white">{x.username}</div>
-              <div className="text-xs text-navy-300">Prize: {x.prizeTitle} · Issued: {new Date(x.createdAt).toLocaleDateString()}</div>
+        {items.map((x) => {
+          const issued = typeof x.issuedAt === "number" ? x.issuedAt : Number(x.createdAt)
+          const pending = x.approved === false
+          const typeLabel = x.type === "runner_up" ? "Runner up" : x.type === "participation" ? "Participation" : "1st"
+          return (
+            <div key={x.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-navy-700/80 p-4 border border-navy-600">
+              <div className="min-w-0">
+                <div className="font-bold text-white">{x.username}</div>
+                <div className="text-xs text-navy-300">
+                  {x.tournamentTitle} · {typeLabel}
+                  {issued && !isNaN(issued) ? ` · Issued ${new Date(issued).toLocaleDateString()}` : ""}
+                </div>
+                <div className="text-[10px] mt-1 uppercase font-black tracking-widest">
+                  {pending ? <span className="text-amber-400">Pending approval</span> : <span className="text-emerald-400">Live for user</span>}
+                  {x.emailSentAt ? <span className="text-navy-500 ml-2">· Emailed</span> : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                {pending ? (
+                  <>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-primary text-xs"
+                      onClick={() => void approve(String(x.id), false)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-ghost text-xs"
+                      onClick={() => void approve(String(x.id), true)}
+                    >
+                      Approve &amp; email
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-navy-500 font-bold uppercase">Approved</span>
+                )}
+              </div>
             </div>
-            <a href={`/certificate/${x.id}`} target="_blank" className="admin-btn admin-btn-ghost text-xs">View</a>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
 }
 
+type QuizScheduleRow = { id: string; title?: string }
+
 export function QuizSchedulerPanel() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const [items, setItems] = useState<QuizScheduleRow[]>([])
   const [uploading, setUploading] = useState(false)
   const [title, setTitle] = useState("")
   const [releaseAt, setReleaseAt] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState("")
   const load = useCallback(async () => {
-    setLoading(true)
     const r = await fetch("/api/admin/quiz-schedule", { cache: "no-store", credentials: "include" })
     const j = await r.json().catch(() => ({ data: [] }))
     setItems(Array.isArray(j?.data) ? j.data : [])
-    setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
   const onSubmit = async (e: React.FormEvent) => {
@@ -175,7 +238,7 @@ export function QuizSchedulerPanel() {
       <div className="admin-card p-6">
         <div className="font-semibold">Scheduled Items</div>
         <ul className="mt-4 space-y-2">
-          {items.map((x: any) => (
+          {items.map((x) => (
             <li key={x.id} className="flex items-center justify-between rounded-lg bg-navy-700/80 p-3 border border-navy-600">
               <span className="font-medium">{x.title || "Untitled"}</span>
               <button onClick={async () => { await fetch(`/api/admin/quiz-schedule?id=${x.id}`, { method: "DELETE" }); load() }} className="admin-btn admin-btn-danger text-xs">Delete</button>

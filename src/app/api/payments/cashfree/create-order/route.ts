@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rateLimit"
 import { verifyTurnstile } from "@/lib/turnstile"
 import { validateOrigin } from "@/lib/auth"
 import { getProfileByUid } from "@/lib/profiles"
+import { setOrderProofCookieOnResponse } from "@/lib/orderProofCookie"
 
 export async function POST(req: Request) {
   const originCheck = validateOrigin(req)
@@ -22,19 +23,44 @@ export async function POST(req: Request) {
   }
 
   const settings = await getSettings()
-  const entryFee = Number(settings?.entryFee ?? 100)
+  const entryFee = Math.max(1, Number(settings?.entryFee ?? 100))
+  const blockedUnblockAmount = Math.max(1, Number(settings?.blockedAmount ?? 50))
   const tournamentId = typeof body?.tournamentId === "string" ? body.tournamentId.trim() : undefined
-  const type = tournamentId ? "tournament_entry" : (typeof body?.type === "string" ? body.type : "entry")
-  let amount = Number(body?.amount ?? (tournamentId ? undefined : entryFee))
+  const requestedPlan = String(body?.paymentPlan ?? "").toLowerCase()
+  if (!tournamentId && requestedPlan === "annual") {
+    return NextResponse.json({ ok: false, error: "Annual payment plan is disabled." }, { status: 400 })
+  }
+  const paymentPlan: "entry" = "entry"
+  const bodyTypeRaw = typeof body?.type === "string" ? body.type.trim().toLowerCase() : ""
+  const unblockUsername =
+    typeof body?.unblockUsername === "string"
+      ? body.unblockUsername.trim()
+      : typeof body?.unblockFor === "string"
+        ? body.unblockFor.trim()
+        : ""
+  const isUnblockOrder = bodyTypeRaw === "unblock"
+  const type: string = isUnblockOrder
+    ? "unblock"
+    : tournamentId
+      ? "tournament_entry"
+      : typeof body?.type === "string"
+        ? body.type
+        : "entry"
+  let amount: number
 
-  if (tournamentId) {
+  if (isUnblockOrder) {
+    if (!unblockUsername || unblockUsername.length < 2) {
+      return NextResponse.json({ ok: false, error: "unblockUsername required" }, { status: 400 })
+    }
+    amount = blockedUnblockAmount
+  } else if (tournamentId) {
     const { getTournaments } = await import("@/lib/tournaments")
     const tournaments = await getTournaments()
     const t = tournaments.find((x: any) => x.id === tournamentId)
     const rawFee = (t as any)?.fee ?? (t as any)?.entryFee ?? entryFee
     amount = Number(rawFee) || (typeof rawFee === "string" ? parseInt(String(rawFee).replace(/\D/g, "") || "100", 10) : 100)
-  } else if (!Number.isFinite(amount) || amount <= 0) {
-    amount = Number.isFinite(entryFee) && entryFee > 0 ? entryFee : 100
+  } else {
+    amount = entryFee
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ ok: false, error: "Invalid amount" }, { status: 400 })
@@ -50,7 +76,9 @@ export async function POST(req: Request) {
   }
 
   let username = ""
-  if (tournamentId) {
+  if (isUnblockOrder) {
+    username = unblockUsername
+  } else if (tournamentId) {
     const cookieStore = await cookies()
     const uid = cookieStore.get("uid")?.value ?? ""
     try { username = decodeURIComponent(cookieStore.get("username")?.value ?? "") } catch {}
@@ -66,6 +94,9 @@ export async function POST(req: Request) {
   const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://www.iqearners.online").replace(/\/$/, "")
   let returnUrl = `${baseUrl}/payment/callback?order_id={order_id}`
   if (tournamentId) returnUrl += `&tournamentId=${encodeURIComponent(tournamentId)}`
+  if (isUnblockOrder) {
+    returnUrl = `${baseUrl}/payment/unblock-callback?order_id={order_id}&username=${encodeURIComponent(unblockUsername)}`
+  }
 
   // Generate order ID
   const orderId = `ORDER_${Date.now()}_${Math.random().toString(36).substring(7)}`
@@ -90,16 +121,21 @@ export async function POST(req: Request) {
         order_id: orderId,
         order_amount: orderAmount,
         order_currency: orderCurrency,
-        order_note: tournamentId ? `Tournament ${tournamentId} - ${username}` : `Entry fee payment - ${type}`,
+        order_note: isUnblockOrder
+          ? `Unblock @${unblockUsername}`
+          : tournamentId
+            ? `Tournament ${tournamentId} - ${username}`
+            : `Entry fee - ${type}`,
         customer_details: {
           customer_id: body?.customerId || `CUST_${Date.now()}`,
-          customer_name: body?.customerName || "Guest User",
+          customer_name: isUnblockOrder ? unblockUsername : body?.customerName || "Guest User",
           customer_email: body?.customerEmail || "",
           customer_phone: (typeof body?.customerPhone === "string" && /^\d{10}$/.test(body.customerPhone.trim())) ? body.customerPhone.trim() : "9999999999"
         },
         order_meta: {
           return_url: returnUrl,
-          notify_url: `${baseUrl}/api/payments/webhook`
+          notify_url: `${baseUrl}/api/payments/webhook`,
+          ...(isUnblockOrder ? { unblock_username: unblockUsername, username: unblockUsername } : {})
         }
       })
     })
@@ -118,16 +154,24 @@ export async function POST(req: Request) {
         status: "pending",
         gateway: "cashfree",
         created_at: Date.now(),
-        meta: {
-          customerName: body?.customerName,
-          customerEmail: body?.customerEmail,
-          customerPhone: body?.customerPhone,
-          ...(tournamentId && username ? { tournamentId, username } : {})
-        }
+        meta: isUnblockOrder
+          ? {
+              unblockFor: unblockUsername,
+              name: unblockUsername,
+              username: unblockUsername,
+              unblock_username: unblockUsername
+            }
+          : {
+              customerName: body?.customerName,
+              customerEmail: body?.customerEmail,
+              customerPhone: body?.customerPhone,
+              paymentPlan: tournamentId ? undefined : paymentPlan,
+              ...(tournamentId && username ? { tournamentId, username } : {})
+            }
       } as import("@/lib/payments").Payment
       await addPayment(entry)
-      
-      return NextResponse.json({
+
+      const res = NextResponse.json({
         ok: true,
         paymentId,
         orderId: orderData.order_id || orderId,
@@ -137,6 +181,8 @@ export async function POST(req: Request) {
         orderCurrency,
         mode: isProduction ? "production" : "sandbox"
       })
+      setOrderProofCookieOnResponse(res, String(orderData.order_id || orderId))
+      return res
     } else {
       return NextResponse.json({ ok: false, error: orderData.message || "Failed to create order" }, { status: 400 })
     }

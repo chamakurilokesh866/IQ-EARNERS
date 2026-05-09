@@ -90,16 +90,12 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
         .then((j) => {
           if (!j) return
           const d = (j as { data?: Record<string, unknown> }).data ?? {}
-          let localPaid = false
-          try {
-            localPaid = typeof window !== "undefined" && window.localStorage.getItem("paid") === "1"
-          } catch { }
           const layout = d.navbarLayout === "horizontal" ? "horizontal" : "vertical"
           setCachedLayout(layout)
           setData({
             username: (d.username as string | null) ?? null,
             country: (d.country as string | null) ?? null,
-            paid: Boolean(d.paid) || localPaid,
+            paid: Boolean(d.paid),
             entryFee: Number(d.entryFee ?? 100),
             blocked: (j as { blocked?: boolean }).blocked ?? (d.blocked as boolean | undefined),
             blockKey: (j as { blockKey?: string }).blockKey ?? (d.blockKey as string | undefined),

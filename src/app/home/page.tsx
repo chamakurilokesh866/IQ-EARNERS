@@ -12,6 +12,8 @@ import { useToast } from "@/context/ToastContext"
 import LiveMegaTournamentBanner from "../../components/LiveMegaTournamentBanner"
 import TransparencySection from "../../components/TransparencySection"
 import AdSlot from "../../components/AdSlot"
+import NeonParticles from "../../components/NeonParticles"
+import { SparklesIcon, UserIcon, GiftIcon, RocketIcon } from "../../components/AnimatedIcons"
 
 const UpiRequestModal = dynamic(() => import("../../components/UpiRequestModal"), { ssr: false })
 const VipModal = dynamic(() => import("../../components/VipModal"), { ssr: false })
@@ -53,7 +55,7 @@ const QUICK_ACTIONS = [
     label: "Daily Quiz",
     desc: "Answer today's questions & earn",
     href: "/daily-quiz",
-    icon: "🎯",
+    icon: "daily",
     primary: true,
     badge: "LIVE"
   },
@@ -61,7 +63,7 @@ const QUICK_ACTIONS = [
     label: "Tournaments",
     desc: "Compete in timed events & win prizes",
     href: "/tournaments",
-    icon: "🏆",
+    icon: "tournament",
     primary: false,
     badge: null
   },
@@ -69,7 +71,7 @@ const QUICK_ACTIONS = [
     label: "Leaderboard",
     desc: "See where you rank globally",
     href: "/leaderboard",
-    icon: "📊",
+    icon: "leaderboard",
     primary: false,
     badge: null
   },
@@ -77,11 +79,26 @@ const QUICK_ACTIONS = [
     label: "My Profile",
     desc: "View stats & earned rewards",
     href: "/user",
-    icon: "👤",
+    icon: "profile",
     primary: false,
     badge: null
   }
 ]
+
+const QUIZ_CATEGORIES = [
+  { label: "Tech", icon: "💻", grad: "from-violet-500/35 to-cyan-500/25" },
+  { label: "Sports", icon: "🏅", grad: "from-cyan-500/35 to-blue-500/25" },
+  { label: "Movies", icon: "🎬", grad: "from-fuchsia-500/35 to-violet-500/25" },
+  { label: "GK", icon: "🌍", grad: "from-blue-500/35 to-indigo-500/25" },
+] as const
+
+function QuickActionIcon({ kind }: { kind: "daily" | "tournament" | "leaderboard" | "profile" }) {
+  const cls = "text-white"
+  if (kind === "daily") return <RocketIcon size={20} className={cls} />
+  if (kind === "tournament") return <GiftIcon size={20} className={cls} />
+  if (kind === "leaderboard") return <SparklesIcon size={20} className={cls} />
+  return <UserIcon size={20} className={cls} />
+}
 
 // ── QuizMaterials ─────────────────────────────────────────────────────────────
 function QuizMaterialsSection() {
@@ -124,6 +141,7 @@ export default function HomePage() {
   const [quickStats, setQuickStats] = useState<{ streak: number; rank: number | null; todayDone: boolean; myScore?: number }>({ streak: 0, rank: null, todayDone: false })
   const [liveMega, setLiveMega] = useState<{ prizePool: string; enrolled: number; capacity: number; liveQuizHour: number; liveQuizMinute: number; liveMegaTimeEnabled?: boolean } | null>(null)
   const [publicStats, setPublicStats] = useState<HomePublicStats | null>(null)
+  const [miniLeaderboard, setMiniLeaderboard] = useState<Array<{ name: string; score: number }>>([])
   const { data: bootstrap } = useBootstrap()
   const { showToast } = useToast()
 
@@ -178,6 +196,8 @@ export default function HomePage() {
       const myIdx = lbData.findIndex((p: any) => String(p?.name).toLowerCase() === String(username).toLowerCase())
       const rank = myIdx >= 0 ? myIdx + 1 : null
       const myScore = myIdx >= 0 ? lbData[myIdx]?.score : undefined
+      const top = lbData.slice(0, 5).map((p: any) => ({ name: String(p?.name ?? "Player"), score: Number(p?.score ?? 0) }))
+      setMiniLeaderboard(top)
       setQuickStats({ streak, rank, todayDone: false, myScore })
     }).catch(() => showToast("Failed to load dashboard", "error"))
   }, [username, showToast])
@@ -185,102 +205,90 @@ export default function HomePage() {
   return (
     <PaidGate>
       {/* ── Paper-style CSS (scoped via className prefix "qp-") ── */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <NeonParticles className="opacity-50" />
+      </div>
       <style>{`
         .qp-card {
-          background: #ffffff;
-          border: 1px solid #e8eaf0;
-          border-radius: 20px;
+          background: var(--nebula-card-bg);
+          border: 1px solid var(--nebula-card-border);
+          border-radius: 24px;
           padding: 24px;
-          box-shadow: 0 2px 12px rgba(30,40,80,0.06), 0 1px 3px rgba(30,40,80,0.04);
-          transition: box-shadow 0.2s;
+          box-shadow: var(--nebula-shadow-glow);
+          backdrop-filter: blur(20px);
+          position: relative;
+          overflow: hidden;
+        }
+        .qp-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, transparent 100%);
+          pointer-events: none;
         }
         .qp-card:hover {
-          box-shadow: 0 6px 24px rgba(30,40,80,0.1), 0 2px 6px rgba(30,40,80,0.06);
+          border-color: rgba(139,92,246,0.3);
+          transform: translateY(-2px);
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .qp-section-header {
           display: flex;
           align-items: center;
-          gap: 10px;
-          font-size: 11px;
+          gap: 12px;
+          font-size: 10px;
           font-weight: 900;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.4em;
           text-transform: uppercase;
-          color: #8892a4;
-        }
-        .qp-section-dot {
-          width: 6px;
-          height: 18px;
-          border-radius: 3px;
-          background: #7c3aed;
-          display: inline-block;
+          color: rgba(255, 255, 255, 0.4);
+          margin-bottom: 24px;
         }
         .qp-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
           font-size: 9px;
           font-weight: 900;
           letter-spacing: 0.15em;
           text-transform: uppercase;
-          padding: 2px 8px;
-          border-radius: 999px;
+          padding: 4px 10px;
+          border-radius: 8px;
+          background: rgba(34, 211, 238, 0.1);
+          color: #22d3ee;
+          border: 1px solid rgba(34, 211, 238, 0.2);
         }
-        .qp-divider { height: 1px; background: linear-gradient(90deg, transparent, #e2e5f0, transparent); margin: 8px 0; }
         .qp-action-primary {
-          background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+          background: var(--nebula-primary);
           color: white;
-          border: none;
-          box-shadow: 0 4px 18px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
-        }
-        .qp-action-primary:hover {
-          background: linear-gradient(135deg, #3d8bf7 0%, #2068e0 100%);
-          box-shadow: 0 6px 24px rgba(124,58,237,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
-          transform: translateY(-1px);
+          box-shadow: 0 0 30px rgba(139,92,246,0.3);
         }
         .qp-action-card {
-          background: white;
-          border: 1px solid #e8eaf0;
-          border-radius: 18px;
-          padding: 22px 18px;
-          cursor: pointer;
-          transition: all 0.18s cubic-bezier(0.4,0,0.2,1);
-          text-align: left;
-          display: block;
-          width: 100%;
-          color: inherit;
-          text-decoration: none;
-          box-shadow: 0 1px 4px rgba(30,40,80,0.05);
+           background: var(--nebula-card-bg);
+           border: 1px solid var(--nebula-card-border);
+           border-radius: 20px;
+           padding: 24px;
+           transition: all 0.4s var(--nebula-ease);
+           position: relative;
+           overflow: hidden;
         }
         .qp-action-card:hover {
-          border-color: #7c3aed;
-          box-shadow: 0 4px 16px rgba(124,58,237,0.12);
-          transform: translateY(-2px);
+          border-color: var(--nebula-primary);
+          box-shadow: var(--nebula-shadow-glow);
+          transform: translateY(-4px);
         }
-        .qp-action-card:active { transform: scale(0.98); }
         .qp-stat-pill {
-          background: #f3f5fb;
-          border: 1px solid #e2e5f0;
-          border-radius: 12px;
-          padding: 12px 16px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 3px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 16px;
+          padding: 16px;
+          text-align: center;
         }
         @keyframes qp-fade-up {
-          from { opacity:0; transform: translateY(14px); }
+          from { opacity:0; transform: translateY(20px); }
           to { opacity:1; transform: translateY(0); }
         }
-        .qp-animate { animation: qp-fade-up 0.4s ease both; }
-        .qp-animate-delay-1 { animation-delay: 0.06s; }
-        .qp-animate-delay-2 { animation-delay: 0.12s; }
-        .qp-animate-delay-3 { animation-delay: 0.18s; }
-        .qp-hero-badge {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2);
-          padding: 5px 14px; border-radius: 999px;
-          font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #7c3aed;
-        }
+        .qp-animate { animation: qp-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .qp-animate-delay-1 { animation-delay: 0.1s; }
+        .qp-animate-delay-2 { animation-delay: 0.2s; }
       `}</style>
 
       <main className="qp-page app-page-surface flex min-h-screen w-full flex-col min-h-0">
@@ -289,91 +297,77 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2 pb-8 sm:pt-4 sm:pb-12 lg:pt-2 space-y-6">
 
           {/* ── Hero Banner ──────────────────────────────────────── */}
-          <div className="qp-animate relative rounded-3xl overflow-hidden ring-1 ring-primary/25" style={{
-            background: "linear-gradient(135deg, #1a0a2e 0%, #312e81 42%, #0f172a 100%)"
-          }}>
-            {/* Decorative patterns */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%)" }} />
-              <div className="absolute -bottom-16 -left-16 w-60 h-60 rounded-full" style={{ background: "radial-gradient(circle, rgba(20,184,166,0.22) 0%, transparent 70%)" }} />
-              {/* Grid lines */}
-              <svg className="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5"/>
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-              </svg>
+          <section className="qp-animate relative rounded-[2rem] overflow-hidden border border-white/5 bg-[#05050a] flex items-center">
+            {/* Nebula Background Elements */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-[20%] -right-[10%] w-[60%] h-[80%] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
+              <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[70%] rounded-full bg-cyan-400/5 blur-[100px]" />
+              <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+              
+              {/* Scanline Effect */}
+              <div className="absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-primary/5 to-transparent animate-[nebula-scan_4s_linear_infinite]" />
             </div>
 
-            <div className="relative z-10 p-4 sm:p-8 md:p-12 flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 min-w-0">
-              <div className="flex-1 min-w-0">
-                <div className="qp-hero-badge mb-4">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                  India's #1 Quiz Platform
+            <div className="relative z-10 w-full p-6 sm:p-10 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+              <div className="flex-1 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[8px] font-black tracking-[0.3em] text-cyan-400 uppercase mb-4 sm:mb-6">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  Arena Status: Operational
                 </div>
-                <h1 className="text-2xl sm:text-5xl font-black text-white leading-tight tracking-tight mb-3 break-words">
-                  {username ? `Back to it, ${username}!` : "Challenge. Compete. Win."}
+                
+                <h1 className="flex flex-col lg:items-start items-center leading-none mb-6 relative group">
+                  {username ? (
+                    <>
+                      <div className="flex flex-col mb-1 text-white/50">
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.4em] leading-tight">Command</span>
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.4em] leading-tight -mt-0.5">Centre:</span>
+                      </div>
+                      <span className="text-4xl sm:text-6xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 drop-shadow-[0_4px_12px_rgba(139,92,246,0.25)]" style={{ fontFamily: 'var(--font-display)' }}>
+                        {username.toUpperCase()}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-3xl sm:text-5xl font-black italic uppercase text-white leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
+                      ELITE <span className="text-primary">COGNITIVE</span><br/>TERMINAL
+                    </span>
+                  )}
                 </h1>
-                <p className="text-white/60 text-base sm:text-lg font-medium max-w-lg leading-relaxed">
-                  Sharpen your mind with daily quizzes, compete in live tournaments, and earn real rewards.
+                
+                <p className="max-w-md mx-auto lg:mx-0 text-white/40 text-[11px] sm:text-xs font-bold leading-relaxed mb-8 uppercase tracking-wider">
+                  Welcome to the next generation of intellectual competition. Your cognitive metrics are being monitored.
                 </p>
 
-                {/* Subject pills */}
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {SUBJECTS.slice(0, 6).map((s) => (
-                    <span key={s} className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full"
-                      style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
+                  {SUBJECTS.slice(0, 5).map((s) => (
+                    <span key={s} className="text-[7px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-md bg-white/5 border border-white/10 text-white/30 whitespace-nowrap">
                       {s}
                     </span>
                   ))}
                 </div>
               </div>
 
-              {/* Stats cluster — grid on mobile so wide ₹ / counts never clip (was flex-row + flex-1 overflow) */}
+              {/* Stats Panel */}
               {mounted && publicStats !== null && (
-                <div className="grid w-full min-w-0 grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-col sm:gap-3 sm:shrink-0">
+                <div className="grid grid-cols-3 lg:grid-cols-1 gap-2.5 w-full lg:w-60">
                   {[
-                    {
-                      label: "Community",
-                      val: Math.max(publicStats.totalPlayers ?? 0, 1),
-                      suffix: "+",
-                    },
-                    {
-                      label: "Question bank",
-                      val: Math.max(
-                        publicStats.questionsInBank ?? 0,
-                        (publicStats.quizzesCount ?? 0) * 5,
-                        200
-                      ),
-                      suffix: "+",
-                    },
-                    {
-                      label: "Rewards tracked",
-                      val: Math.min(Math.max(Math.round(publicStats.totalEarnings ?? 0), 0), 9_999_999),
-                      suffix: "₹",
-                    },
+                    { label: "OPERATIVE", val: publicStats.totalPlayers ?? 0, suffix: "" },
+                    { label: "NODES", val: publicStats.questionsInBank ?? 0, suffix: "+" },
+                    { label: "CREDITS", val: publicStats.totalEarnings ?? 0, suffix: "₹" },
                   ].map((s, i) => (
-                    <div
-                      key={i}
-                      className="min-w-0 flex flex-col justify-center rounded-2xl px-2 py-2.5 text-center sm:flex-none sm:px-5 sm:py-3"
-                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
-                    >
-                      <div className="text-base font-black tabular-nums leading-tight text-white sm:text-2xl">
+                    <div key={i} className="p-3.5 sm:p-4 rounded-xl bg-white/[0.04] border border-white/10 backdrop-blur-md relative group overflow-hidden flex flex-col items-center lg:items-start">
+                      <div className="absolute inset-0 bg-primary/[0.03] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="text-[7px] font-black uppercase tracking-[0.3em] text-white/25 mb-1">{s.label}</div>
+                      <div className="text-xl sm:text-2xl font-black tracking-tighter text-white tabular-nums leading-none">
                         {s.suffix === "₹" ? "₹" : ""}
                         <AnimatedCount to={s.val} />
                         {s.suffix !== "₹" ? s.suffix : ""}
-                      </div>
-                      <div className="mt-1 text-[8px] font-bold uppercase leading-tight tracking-wide text-white/40 sm:mt-0.5 sm:text-[10px] sm:tracking-widest">
-                        {s.label}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          </section>
 
           {/* ── Quiz launch progress (real /api/progress) ─────────── */}
           {mounted && (
@@ -391,8 +385,8 @@ export default function HomePage() {
                 className={`qp-action-card ${a.primary ? "qp-action-primary" : ""}`}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${a.primary ? "bg-white/15" : "bg-[#f0f4ff]"}`}>
-                    {a.icon}
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${a.primary ? "bg-white/15" : "bg-[#334155]/35 text-cyan-200 border border-cyan-300/30"}`}>
+                    <QuickActionIcon kind={a.icon as "daily" | "tournament" | "leaderboard" | "profile"} />
                   </div>
                   {a.badge && (
                     <span className={`qp-badge ${a.primary ? "bg-white/20 text-white" : "bg-[#e6effd] text-[#7c3aed]"}`}>
@@ -406,6 +400,30 @@ export default function HomePage() {
               </TransitionLink>
             ))}
           </div>
+
+          {/* ── Category cards ─────────────────────────────────────── */}
+          <section className="qp-animate qp-animate-delay-2">
+            <div className="qp-section-header px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(139,92,246,1)]" />
+              Intelligence Domains
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+              {QUIZ_CATEGORIES.map((c) => (
+                <TransitionLink
+                  key={c.label}
+                  href="/daily-quiz"
+                  className={`group relative rounded-3xl border border-white/5 bg-white/[0.02] p-6 hover:border-primary/40 transition-all hover:-translate-y-1 overflow-hidden`}
+                >
+                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="relative z-10">
+                      <div className="text-3xl mb-4 group-hover:scale-125 transition-transform duration-500">{c.icon}</div>
+                      <div className="text-sm font-black tracking-widest text-white uppercase">{c.label}</div>
+                      <div className="text-[9px] font-bold text-white/30 mt-1 uppercase tracking-widest">Initialising...</div>
+                   </div>
+                </TransitionLink>
+              ))}
+            </div>
+          </section>
 
           {/* ── Main content + sidebar ─────────────────────────────── */}
           <div className="qp-animate qp-animate-delay-2 grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -556,6 +574,32 @@ export default function HomePage() {
                   <ActivityFeed username={username} publicStats={publicStats} />
                 </div>
               )}
+
+              {/* Mini leaderboard preview */}
+              <div className="qp-card">
+                <div className="qp-section-header mb-4">
+                  <span className="qp-section-dot" />
+                  Mini Leaderboard
+                </div>
+                {!miniLeaderboard.length ? (
+                  <div className="text-xs text-white/60">Leaderboard data will appear soon.</div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {miniLeaderboard.map((p, i) => (
+                      <div key={`${p.name}-${i}`} className={`flex items-center justify-between rounded-xl border px-3 py-2 ${i < 3 ? "border-cyan-300/30 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-lg bg-black/25 border border-white/20 text-[10px] font-black flex items-center justify-center">#{i + 1}</span>
+                          <span className="truncate text-sm font-bold text-white">{p.name}</span>
+                        </div>
+                        <span className="text-xs font-black text-cyan-200">{p.score}</span>
+                      </div>
+                    ))}
+                    <TransitionLink href="/leaderboard" className="block text-center mt-1 text-[11px] font-black uppercase tracking-wider text-cyan-200 hover:text-white">
+                      View Full Leaderboard
+                    </TransitionLink>
+                  </div>
+                )}
+              </div>
 
               {/* AI Recommendations */}
               {username && (
